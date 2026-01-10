@@ -1,0 +1,22 @@
+{
+  "name": "local-chat-app",
+  "version": "1.0.0",
+  "description": "A local network chat app for sharing messages and files between devices",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "chat",
+    "local-network",
+    "file-sharing"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "ethernet-ip": "^1.2.5",
+    "express": "^4.18.2",
+    "socket.io": "^4.5.4"
+  }
+}

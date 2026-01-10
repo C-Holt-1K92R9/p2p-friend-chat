@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Local Chat - Share Messages & Files</title>
+  
+  <!-- PWA Meta Tags -->
+  <meta name="description" content="Share messages and files on your local network instantly">
+  <meta name="theme-color" content="#667eea">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Local Chat">
+  
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="/manifest.json">
+  
+  <!-- Icons -->
+  <link rel="icon" type="image/svg+xml" href="/icon-192.svg">
+  <link rel="apple-touch-icon" href="/icon-192.svg">
+  
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+<style>
+    /* --- 1. VARIABLES & RESET --- */
+    :root {
+      --primary-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      --bg-gradient: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      --sidebar-bg: rgba(30, 30, 36, 0.98);
+      --bubble-own: var(--primary-gradient);
+      --bubble-other: #ffffff;
+      --text-main: #1f2937;
+      --text-light: #9ca3af;
+      --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.05);
+      --shadow-glow: 0 4px 15px rgba(99, 102, 241, 0.3);
+      --sidebar-width: 360px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg-gradient);
+      /* FIX: Use dynamic viewport height for mobile browsers */
+      height: 100vh;
+      height: 100dvh; 
+      overflow: hidden;
+      color: var(--text-main);
+    }
+
+    /* FIX: Hide the raw file input element shown in your screenshot */
+    #fileInput { display: none; }
+
+    /* --- 2. LAYOUT & OVERLAYS --- */
+    .container {
+      display: flex;
+      height: 100%;
+      position: relative;
+      background: rgba(255, 255, 255, 0.4);
+      backdrop-filter: blur(20px);
+      z-index: 1;
+    }
+
+    /* FIX: Drop Overlay (Folder Icon Glitch) */
+    /* Ensure it is hidden by default with display: none */
+    .drop-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(99, 102, 241, 0.95);
+      z-index: 9999;
+      display: none; 
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: bold;
+      backdrop-filter: blur(5px);
+    }
+    .drop-overlay.active { display: flex; }
+    .drop-overlay-text { font-size: 24px; margin-top: 20px; }
+
+    /* --- 3. SIDEBAR --- */
+    .sidebar {
+      width: var(--sidebar-width);
+      min-width: var(--sidebar-width);
+      background: var(--sidebar-bg);
+      backdrop-filter: blur(10px);
+      border-right: 1px solid rgba(255,255,255,0.1);
+      color: #e5e7eb;
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      transition: width 0.3s ease, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .sidebar-header {
+      padding: 24px 20px;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.2), transparent);
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      flex-shrink: 0;
+    }
+
+    .sidebar-header h1 {
+      font-size: 20px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: white;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      margin-bottom: 8px;
+    }
+
+    /* Connection Status */
+    .connection-status {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px; font-weight: 500; color: rgba(255, 255, 255, 0.6);
+      margin-left: 2px;
+    }
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      display: inline-block; transition: all 0.3s ease;
+    }
+    .status-dot[style*="#4ade80"] { box-shadow: 0 0 10px #4ade80; animation: pulse-green 2s infinite; }
+    .status-dot[style*="#ef4444"] { box-shadow: 0 0 10px #ef4444; }
+    @keyframes pulse-green {
+      0% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.7); }
+      70% { box-shadow: 0 0 0 6px rgba(74, 222, 128, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
+    }
+
+    /* Install Button */
+    .install-btn {
+      display: none; width: 100%; margin-bottom: 20px; padding: 14px;
+      background: var(--primary-gradient); color: white; border: none;
+      border-radius: 12px; font-weight: 600; font-size: 14px; cursor: pointer;
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3); transition: all 0.2s;
+    }
+    .install-btn.visible { display: block; }
+    .install-btn:hover { transform: translateY(-2px); }
+
+    /* Sidebar Input */
+    .user-input { padding: 20px; display: flex; gap: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); flex-shrink: 0; flex-wrap: wrap; }
+    .user-input input {
+      flex: 1; padding: 10px 14px; border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2);
+      color: white; outline: none; font-size: 14px; min-width: 150px;
+    }
+    .user-input button {
+      padding: 10px 20px; border-radius: 8px; border: none;
+      background: var(--primary-gradient); color: white; cursor: pointer;
+      font-weight: 600; flex-shrink: 0; transition: all 0.2s;
+    }
+    .user-input button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    #disconnectBtn {
+      background: #ef4444 !important;
+    }
+    #disconnectBtn:hover {
+      background: #dc2626 !important;
+    }
+
+    /* User List */
+    .users-list { flex: 1; overflow-y: auto; padding: 10px 0; }
+    .users-list::-webkit-scrollbar { width: 5px; }
+    .users-list::-webkit-scrollbar-track { background: transparent; }
+    .users-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+    .users-list h3 { padding: 20px 20px 10px; font-size: 11px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1.2px; font-weight: 600; }
+    .user-item {
+      padding: 14px 20px; cursor: pointer; display: flex; align-items: center; gap: 14px;
+      transition: all 0.2s; border-left: 3px solid transparent; margin-bottom: 2px;
+    }
+    .user-item:hover { background: rgba(255, 255, 255, 0.08); }
+    .user-item.active { background: linear-gradient(90deg, rgba(139, 92, 246, 0.15) 0%, transparent 100%); border-left-color: #8b5cf6; }
+    .user-avatar { 
+      min-width: 40px; height: 40px; border-radius: 12px; 
+      background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%);
+      display: flex; align-items: center; justify-content: center;
+      color: #333; font-weight: bold; font-size: 15px;
+    }
+    .online-indicator { width: 10px; height: 10px; background: #10b981; border-radius: 50%; box-shadow: 0 0 10px #10b981; }
+
+    /* --- 4. MAIN CHAT AREA --- */
+    .main {
+      flex: 1; display: flex; flex-direction: column;
+      background: transparent; overflow: hidden;
+      width: 100%; position: relative; min-width: 0;
+    }
+
+    /* Chat Header */
+    .chat-header {
+      padding: 16px 24px; background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(12px); border-bottom: 1px solid rgba(0,0,0,0.05);
+      display: flex; align-items: center; justify-content: space-between;
+      z-index: 10; flex-shrink: 0; /* FIX: Prevents header from shrinking/disappearing */
+      min-height: 70px;
+    }
+    .chat-header h2 { font-size: 18px; font-weight: 600; color: #1f2937; margin: 0; }
+    #mobileConnectionStatus { color: #1f2937; }
+
+    /* Hamburger Button */
+    .toggle-btn {
+        width: 44px; height: 44px; border: none; background: transparent; cursor: pointer;
+        display: flex; flex-direction: column; justify-content: center; align-items: center;
+        gap: 6px; border-radius: 10px; z-index: 50; flex-shrink: 0;
+    }
+    .bar { display: block; width: 24px; height: 3px; background-color: #1f2937; border-radius: 4px; transition: 0.3s; }
+    .toggle-btn:hover { background: rgba(0,0,0,0.05); }
+
+    /* --- 5. MESSAGES (TEXT) --- */
+    .messages { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 12px; }
+    .message { display: flex; gap: 12px; width: 100%; animation: slideUp 0.3s ease-out; }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    
+    .message.own { justify-content: flex-end; }
+    .message-content { display: flex; flex-direction: column; gap: 4px; max-width: 85%; }
+    .message.own .message-content { align-items: flex-end; }
+
+    .message-bubble {
+      padding: 12px 18px; border-radius: 18px; font-size: 15px; line-height: 1.5;
+      position: relative; box-shadow: var(--shadow-sm);
+      width: fit-content; min-width: 0; word-break: normal; overflow-wrap: break-word; white-space: pre-wrap;
+    }
+    .message:not(.own) .message-bubble { background: var(--bubble-other); color: var(--text-main); border-bottom-left-radius: 4px; border: 1px solid rgba(0,0,0,0.05); }
+    .message.own .message-bubble { background: var(--bubble-own); color: white; border-bottom-right-radius: 4px; box-shadow: var(--shadow-glow); }
+
+    .message-time { font-size: 11px; color: var(--text-light); padding: 0 4px; }
+    .message.own .message-time { color: rgba(0, 0, 0, 0.65); text-align: right; font-weight: 500; }
+    .message-username { font-size: 12px; color: var(--text-light); font-weight: 600; padding: 0 4px; }
+
+    /* --- 6. FILE & PROGRESS STYLES (FIXED) --- */
+    /* This section creates the bubbles for file transfers */
+    .file-message {
+      padding: 12px; border-radius: 18px; font-size: 14px;
+      position: relative; box-shadow: var(--shadow-sm);
+      min-width: 200px; max-width: 100%;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    
+    /* Bubble Style: Own Files */
+    .message.own .file-message {
+      background: var(--bubble-own); color: white;
+      border-bottom-right-radius: 4px; box-shadow: var(--shadow-glow);
+    }
+    
+    /* Bubble Style: Other Files */
+    .message:not(.own) .file-message {
+      background: var(--bubble-other); color: var(--text-main);
+      border-bottom-left-radius: 4px; border: 1px solid rgba(0,0,0,0.05);
+    }
+
+    .file-info { display: flex; align-items: center; gap: 12px; }
+    
+    .file-icon { 
+      font-size: 24px; width: 40px; height: 40px; 
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.05); border-radius: 10px;
+    }
+    .message.own .file-icon { background: rgba(255,255,255,0.2); }
+
+    .file-details { flex: 1; overflow: hidden; }
+    .file-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .file-size { font-size: 11px; opacity: 0.8; }
+    
+    /* Action Buttons */
+    .download-btn, .cancel-btn {
+      padding: 6px 12px; border-radius: 6px; border: none; font-size: 12px; font-weight: 600; cursor: pointer;
+    }
+    .download-btn { background: #10b981; color: white; }
+    .cancel-btn { background: #ef4444; color: white; }
+    .message.own .download-btn { background: white; color: #6366f1; }
+    .message.own .cancel-btn { background: white; color: #ef4444; }
+    
+    /* Progress Bar */
+    .file-progress {
+      height: 4px; background: rgba(0,0,0,0.1);
+      border-radius: 2px; overflow: hidden; width: 100%;
+    }
+    .message.own .file-progress { background: rgba(255,255,255,0.3); }
+    
+    .file-progress-bar {
+      height: 100%; width: 0%; transition: width 0.2s;
+      background: #10b981; /* Green Progress */
+    }
+    .message.own .file-progress-bar { background: white; }
+
+    /* Media Previews */
+    .media-preview img, .media-preview video {
+      max-width: 100%; border-radius: 8px; margin-top: 8px;
+    }
+
+    /* --- 7. INPUT AREA --- */
+    .input-area {
+      padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom));
+      background: white; border-top: 1px solid rgba(0,0,0,0.05);
+      display: flex; gap: 12px; z-index: 20; flex-shrink: 0;
+    }
+    .message-input-wrapper {
+      flex: 1; display: flex; gap: 8px; background: #f9fafb; padding: 6px;
+      border-radius: 24px; border: 1px solid #e5e7eb; align-items: center;
+    }
+    .message-input-wrapper:focus-within { background: white; border-color: #8b5cf6; box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1); }
+    .message-input { flex: 1; padding: 8px 12px; border: none; background: transparent; font-size: 15px; outline: none; color: var(--text-main); resize: none; max-height: 100px; }
+    .icon-btn { width: 40px; height: 40px; border: none; background: transparent; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 20px; color: #6b7280; }
+    .icon-btn:hover { background: #e5e7eb; color: #8b5cf6; }
+    .send-btn { padding: 0 24px; background: var(--primary-gradient); color: white; border: none; border-radius: 24px; cursor: pointer; font-weight: 600; height: 52px; box-shadow: var(--shadow-glow); transition: transform 0.2s; }
+    .send-btn:hover { transform: translateY(-2px); }
+    .send-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+    /* --- 8. RESPONSIVE LOGIC --- */
+    .mobile-overlay {
+      display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+      z-index: 1000; opacity: 0; transition: opacity 0.3s ease;
+    }
+    .mobile-overlay.active { opacity: 1; pointer-events: auto; }
+
+    /* DESKTOP (> 768px) */
+    @media (min-width: 769px) {
+      .sidebar { position: relative; transform: none !important; z-index: 1; }
+      .sidebar.desktop-collapsed, .sidebar.collapsed { width: 0; min-width: 0; opacity: 0; padding: 0; margin: 0; }
+      .toggle-btn { display: flex; } 
+    }
+
+    /* MOBILE (<= 768px) */
+    @media (max-width: 768px) {
+      .container { 
+        flex-direction: column; z-index: auto !important; 
+        transform: none !important; backdrop-filter: none !important; 
+        -webkit-backdrop-filter: none !important;
+      }
+      .sidebar {
+        position: fixed; top: 0; bottom: 0; left: 0;
+        width: 85vw; max-width: 360px; min-width: 0; 
+        transform: translateX(-100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        z-index: 2000; box-shadow: none;
+      }
+      .sidebar.mobile-open, .sidebar.mobile-active, .sidebar.active {
+        transform: translateX(0) !important; box-shadow: 10px 0 50px rgba(0,0,0,0.5);
+      }
+      .mobile-overlay { display: block; pointer-events: none; }
+      
+      .sidebar.desktop-collapsed, .sidebar.collapsed {
+        width: 85vw; max-width: 360px; min-width: 0;
+        opacity: 1; padding: inherit; transform: translateX(-100%);
+      }
+      .sidebar.mobile-open.collapsed, .sidebar.mobile-active.collapsed {
+          transform: translateX(0) !important;
+      }
+      .main { height: 100%; width: 100%; }
+      .input-area { padding: 12px; flex-wrap: wrap; }
+      .message-input-wrapper { width: 100%; }
+      .send-btn { width: 100%; height: 44px; margin-top: 8px; }
+      .toggle-btn { display: flex; }
+    }
+</style>
+</head>
+<body>
+  <div class="mobile-overlay" id="mobileOverlay" onclick="toggleSidebar()"></div>
+  <div class="drop-overlay" id="dropOverlay">
+    <div style="font-size: 64px;">📁</div>
+    <div class="drop-overlay-text">Drop files here to share</div>
+  </div>
+
+  <div class="container">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <button class="install-btn" id="installBtn" onclick="installApp()" title="Install as app">📲 Install App</button>
+        <h1>
+          <span class="online-indicator"></span>
+          Local Chat
+        </h1>
+        <div class="connection-status" id="connectionStatus">
+          <span class="status-dot"></span>
+          <span>Connected</span>
+        </div>
+      </div>
+
+      <div class="user-input">
+        <input 
+          type="text" 
+          id="usernameInput" 
+          placeholder="Your name..." 
+          maxlength="20"
+        >
+        <button id="joinBtn" onclick="joinChat()">Join</button>
+        <button id="disconnectBtn" onclick="disconnectDevice()" style="display: none; background: #ef4444;">Disconnect</button>
+      </div>
+
+      <div class="users-list">
+        <h3>Online Users (<span id="userCount">0</span>)</h3>
+        <div id="usersList"></div>
+      </div>
+    </div>
+
+    <!-- Main Chat Area -->
+    <div class="main">
+      <div class="chat-header">
+        <h2 id="chatTitle">Local Chat</h2>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <button class="toggle-btn" id="toggleSidebarBtn" title="Menu">
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="bar"></div>
+          </button>
+          
+          
+        </div>
+      </div>
+
+      <div class="messages" id="messages">
+        <div class="empty-state">
+          <div class="empty-state-icon">💬</div>
+          <div>Welcome! Enter your name in the menu to start chatting.</div>
+        </div>
+      </div>
+
+      <div class="input-area">
+        <div class="message-input-wrapper">
+          <textarea 
+            class="message-input" 
+            id="messageInput" 
+            placeholder="Type a message..." 
+            disabled
+          ></textarea>
+          <button class="icon-btn" id="fileBtn" title="Share file" disabled>
+            📎
+          </button>
+        </div>
+        <button class="send-btn" id="sendBtn" onclick="sendMessage()" disabled>
+          Send
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <input type="file" id="fileInput" accept="*">
+
+  <script>
+    // --- Responsive Sidebar Logic ---
+    const sidebar = document.querySelector('.sidebar');
+    const mobileOverlay = document.getElementById('mobileOverlay');
+
+    function toggleSidebar() {
+      const isMobile = window.innerWidth <= 768;
+
+      if (isMobile) {
+        // Mobile: Toggle slide-in and overlay
+        sidebar.classList.toggle('mobile-open');
+        mobileOverlay.classList.toggle('active');
+      } else {
+        // Desktop: Toggle width collapse
+        sidebar.classList.toggle('collapsed');
+      }
+    }
+
+    // Attach to button
+    document.getElementById('toggleSidebarBtn').addEventListener('click', toggleSidebar);
+
+    // Auto-close sidebar on mobile when a user is clicked (optional)
+    // You can add this inside your renderUsers() function logic if you want.
+    // Register Service Worker for PWA
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then((registration) => {
+            console.log('Service Worker registered:', registration);
+          })
+          .catch((error) => {
+            console.log('Service Worker registration failed:', error);
+          });
+      });
+    }
+
+    // Get backend URL from config or default to same origin
+    const getBackendUrl = () => {
+      // Check if there's a custom backend URL in localStorage
+      const customUrl = localStorage.getItem('backendUrl');
+      if (customUrl) return customUrl;
+      
+      // Default to current origin
+      return window.location.origin;
+    };
+
+    const backendUrl = getBackendUrl();
+    const socket = io(backendUrl, {
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 10
+    });
+    
+    let currentUser = null;
+    const users = new Map();
+    const files = new Map(); // Track file transfers
+    const activeTransfers = new Map(); // Track ongoing file transfers for cancellation
+    let messageCount = 0;
+
+    // DOM Elements
+    const usernameInput = document.getElementById('usernameInput');
+    const messageInput = document.getElementById('messageInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const fileBtn = document.getElementById('fileBtn');
+    const fileInput = document.getElementById('fileInput');
+    const messagesList = document.getElementById('messages');
+    const usersList = document.getElementById('usersList');
+    const userCount = document.getElementById('userCount');
+    const connectionStatus = document.getElementById('connectionStatus');
+    const chatTitle = document.getElementById('chatTitle');
+
+    // Socket Events
+    socket.on('connect', () => {
+      updateConnectionStatus(true);
+      console.log('Connected to server');
+    });
+
+    socket.on('disconnect', () => {
+      updateConnectionStatus(false);
+      currentUser = null;
+      messageInput.disabled = true;
+      sendBtn.disabled = true;
+      fileBtn.disabled = true;
+      usernameInput.disabled = false;
+      
+      // Show join button, hide disconnect button
+      document.getElementById('joinBtn').style.display = 'block';
+      document.getElementById('disconnectBtn').style.display = 'none';
+    });
+
+    socket.on('users-updated', (usersList_) => {
+      users.clear();
+      usersList_.forEach(user => {
+        users.set(user.id, user);
+      });
+      renderUsers();
+    });
+
+    socket.on('message-history', (history) => {
+      // Clear empty state if exists
+      if (messagesList.querySelector('.empty-state')) {
+        messagesList.innerHTML = '';
+      }
+      
+      // Load all previous messages
+      history.forEach(message => {
+        addMessage(message, false); // false = don't scroll
+      });
+      
+      // Scroll to bottom after loading history
+      if (history.length > 0) {
+        messagesList.scrollTop = messagesList.scrollHeight;
+      }
+    });
+
+    socket.on('message', (message) => {
+      addMessage(message);
+    });
+
+    socket.on('file-start', (fileInfo) => {
+      files.set(fileInfo.fileId, {
+        ...fileInfo,
+        chunks: [],
+        received: 0
+      });
+      addFileMessage(fileInfo);
+    });
+
+    socket.on('file-chunk', (data) => {
+      const file = files.get(data.fileId);
+      if (file) {
+        file.chunks[data.chunkIndex] = data.chunk;
+        file.received = Object.keys(file.chunks).length;
+        file.totalChunks = data.total || file.totalChunks;
+        updateFileProgress(data.fileId);
+      }
+    });
+
+    socket.on('file-complete', (fileInfo) => {
+      const file = files.get(fileInfo.fileId);
+      if (file) {
+        completeFileTransfer(fileInfo.fileId);
+      }
+    });
+
+    socket.on('file-error', (error) => {
+      console.error('File transfer error:', error);
+      const fileElement = document.getElementById(`file-${error.fileId}`);
+      if (fileElement) {
+        fileElement.innerHTML = '❌ Transfer failed';
+      }
+    });
+
+    socket.on('file-cancel', (data) => {
+      const fileElement = document.getElementById(`file-${data.fileId}`);
+      if (fileElement) {
+        fileElement.innerHTML = `
+          <div class="file-info">
+            <div class="file-icon">❌</div>
+            <div class="file-details">
+              <div class="file-name">Transfer cancelled</div>
+            </div>
+          </div>
+        `;
+      }
+    });
+
+    // Join Chat
+    function joinChat() {
+      const username = usernameInput.value.trim();
+      if (!username) {
+        alert('Please enter a username');
+        return;
+      }
+
+      currentUser = { username };
+      
+      // Save username to localStorage
+      localStorage.setItem('chatUsername', username);
+      
+      socket.emit('join', username);
+      
+      usernameInput.disabled = true;
+      messageInput.disabled = false;
+      sendBtn.disabled = false;
+      fileBtn.disabled = false;
+      messageInput.focus();
+
+      // Show disconnect button, hide join button
+      document.getElementById('joinBtn').style.display = 'none';
+      document.getElementById('disconnectBtn').style.display = 'block';
+
+      // Update header
+      chatTitle.textContent = `Welcome, ${username}!`;
+
+      // Empty state will be cleared when message history loads
+    }
+
+    // Disconnect Device
+    function disconnectDevice() {
+      if (confirm('Are you sure you want to disconnect?')) {
+        // Disconnect socket
+        socket.disconnect();
+        
+        // Reset UI state
+        currentUser = null;
+        users.clear();
+        
+        // Clear messages
+        messagesList.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">💬</div>
+            <div>Welcome! Enter your name to start chatting.</div>
+          </div>
+        `;
+        
+        // Reset inputs
+        usernameInput.disabled = false;
+        usernameInput.value = '';
+        messageInput.disabled = true;
+        messageInput.value = '';
+        sendBtn.disabled = true;
+        fileBtn.disabled = true;
+        
+        // Show join button, hide disconnect button
+        document.getElementById('joinBtn').style.display = 'block';
+        document.getElementById('disconnectBtn').style.display = 'none';
+        
+        // Reset user list
+        renderUsers();
+        
+        // Update header
+        chatTitle.textContent = 'Local Chat';
+        
+        // Clear stored username
+        localStorage.removeItem('chatUsername');
+        
+        // Update connection status
+        updateConnectionStatus(false);
+        
+        // Close sidebar on mobile
+        if (window.innerWidth <= 768) {
+          sidebar.classList.remove('mobile-open');
+          mobileOverlay.classList.remove('active');
+        }
+        
+        // Focus on username input
+        usernameInput.focus();
+      }
+    }
+
+    // Send Message
+    function sendMessage() {
+      const text = messageInput.value.trim();
+      if (!text || !currentUser) return;
+
+      socket.emit('message', { text });
+      messageInput.value = '';
+      messageInput.focus();
+    }
+
+    // Add Message to UI
+    function addMessage(message, autoScroll = true) {
+      // Clear empty state if needed
+      if (messagesList.querySelector('.empty-state')) {
+        messagesList.innerHTML = '';
+      }
+
+      const isOwn = currentUser && message.username === currentUser.username;
+      const div = document.createElement('div');
+      div.className = `message ${isOwn ? 'own' : ''}`;
+
+      const timeStr = new Date(message.timestamp).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      const text = typeof message.text === 'string' ? message.text : '';
+
+      div.innerHTML = `
+        <div class="message-content">
+          ${!isOwn ? `<div class="message-username">${escapeHtml(message.username || '')}</div>` : ''}
+          <div class="message-bubble">${escapeHtml(text)}</div>
+          <div class="message-time">${timeStr}</div>
+        </div>
+      `;
+
+      messagesList.appendChild(div);
+
+      if (autoScroll) {
+        messagesList.scrollTop = messagesList.scrollHeight;
+      }
+    }
+
+    // File Handling
+    fileBtn.addEventListener('click', () => {
+      fileInput.click();
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        shareFile(file);
+        fileInput.value = '';
+      }
+    });
+
+    // Enable send on Enter key
+    messageInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    // Share File (sequential, cancellable, with progress)
+    async function shareFile(file) {
+      const fileId = Math.random().toString(36).substr(2, 9);
+      const chunkSize = 64 * 1024; // 64KB chunks (stable)
+      const totalChunks = Math.ceil(file.size / chunkSize);
+
+      // Track this transfer for cancellation
+      activeTransfers.set(fileId, { cancelled: false });
+
+      // Announce start with totals so progress works on all clients
+      socket.emit('file-start', {
+        fileId,
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        totalChunks
+      });
+
+      let chunkIndex = 0;
+
+      const readNextChunk = () => {
+        // Stop if cancelled
+        if (activeTransfers.get(fileId)?.cancelled) {
+          socket.emit('file-error', { fileId, error: 'Transfer cancelled by sender' });
+          return;
+        }
+
+        if (chunkIndex >= totalChunks) {
+          // All chunks sent
+          socket.emit('file-complete', {
+            fileId,
+            fileName: file.name
+          });
+          activeTransfers.delete(fileId);
+          return;
+        }
+
+        const start = chunkIndex * chunkSize;
+        const end = Math.min(start + chunkSize, file.size);
+        const slice = file.slice(start, end);
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          // If cancelled while reading, abort
+          if (activeTransfers.get(fileId)?.cancelled) {
+            socket.emit('file-error', { fileId, error: 'Transfer cancelled by sender' });
+            return;
+          }
+
+          const chunk = btoa(String.fromCharCode(...new Uint8Array(e.target.result)));
+          socket.emit('file-chunk', {
+            fileId,
+            chunkIndex,
+            chunk,
+            total: totalChunks
+          });
+
+          // Progress will update via socket 'file-chunk' handler on all clients
+          chunkIndex++;
+          // Small delay to keep UI responsive
+          setTimeout(readNextChunk, 5);
+        };
+        reader.onerror = () => {
+          socket.emit('file-error', { fileId, error: 'Error reading file chunk' });
+        };
+        reader.readAsArrayBuffer(slice);
+      };
+
+      readNextChunk();
+    }
+
+    // Cancel file transfer
+    function cancelFileTransfer(fileId) {
+      const transfer = activeTransfers.get(fileId);
+      if (transfer) {
+        transfer.cancelled = true;
+        activeTransfers.delete(fileId);
+        
+        // Notify server to broadcast cancellation to all devices
+        socket.emit('file-cancel', { fileId });
+        
+        // Update UI
+        const fileElement = document.getElementById(`file-${fileId}`);
+        const cancelBtn = document.getElementById(`cancel-${fileId}`);
+        
+        if (fileElement) {
+          fileElement.innerHTML = `
+            <div class="file-info">
+              <div class="file-icon">❌</div>
+              <div class="file-details">
+                <div class="file-name">Transfer cancelled</div>
+              </div>
+            </div>
+          `;
+        }
+        if (cancelBtn) {
+          cancelBtn.disabled = true;
+        }
+      }
+    }
+
+    // Add File Message
+    function addFileMessage(fileInfo) {
+      const isOwn = fileInfo.userId === socket.id;
+      const div = document.createElement('div');
+      div.className = `message ${isOwn ? 'own' : ''}`;
+
+      const timeStr = new Date().toLocaleTimeString([], { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
+
+      const fileSize = formatFileSize(fileInfo.fileSize);
+      const fileIcon = getFileIcon(fileInfo.fileType);
+
+      const cancelBtn = isOwn ? `<button class="cancel-btn" id="cancel-${fileInfo.fileId}" onclick="cancelFileTransfer('${fileInfo.fileId}')">Cancel</button>` : '';
+
+      div.innerHTML = `
+        <div class="message-content">
+          ${!isOwn ? `<div class="message-username">${escapeHtml(fileInfo.username)}</div>` : ''}
+          <div class="file-message" id="file-${fileInfo.fileId}">
+            <div class="file-info">
+              <div class="file-icon">${fileIcon}</div>
+              <div class="file-details">
+                <div class="file-name">${escapeHtml(fileInfo.fileName)}</div>
+                <div class="file-size">${fileSize}</div>
+              </div>
+              ${cancelBtn}
+            </div>
+            <div class="file-progress">
+              <div class="file-progress-bar" id="progress-${fileInfo.fileId}"></div>
+            </div>
+          </div>
+          <div class="message-time">${timeStr}</div>
+        </div>
+      `;
+
+      messagesList.appendChild(div);
+      messagesList.scrollTop = messagesList.scrollHeight;
+    }
+
+    // Update File Progress
+    function updateFileProgress(fileId, completed = null, total = null) {
+      const file = files.get(fileId);
+      if (!file) return;
+
+      let percentage = 0;
+      if (completed !== null && total !== null) {
+        percentage = Math.round((completed / total) * 100);
+      } else if (file.received && file.totalChunks) {
+        percentage = Math.round((file.received / file.totalChunks) * 100);
+      }
+      
+      const progressBar = document.getElementById(`progress-${fileId}`);
+      if (progressBar) {
+        progressBar.style.width = percentage + '%';
+      }
+    }
+
+    // Complete File Transfer
+    function completeFileTransfer(fileId) {
+      const file = files.get(fileId);
+      if (!file) return;
+
+      const fileElement = document.getElementById(`file-${fileId}`);
+      if (fileElement) {
+        const reconstructedFile = reconstructFile(file);
+        const url = URL.createObjectURL(reconstructedFile);
+        const type = (file.fileType || '').toLowerCase();
+
+        let previewHtml = '';
+        if (type.startsWith('image/')) {
+          previewHtml = `<div class="media-preview"><img src="${url}" alt="${escapeHtml(file.fileName)}"></div>`;
+        } else if (type.startsWith('video/')) {
+          previewHtml = `<div class="media-preview"><video src="${url}" controls playsinline muted></video></div>`;
+        }
+
+        fileElement.innerHTML = `
+          <div class="file-info">
+            <div class="file-icon">${getFileIcon(file.fileType)}</div>
+            <div class="file-details">
+              <div class="file-name">${escapeHtml(file.fileName)}</div>
+              <div class="file-size">${formatFileSize(file.fileSize)}</div>
+            </div>
+            <button class="download-btn" onclick="downloadFile('${url}', '${file.fileName}')">
+              Download
+            </button>
+          </div>
+          ${previewHtml}
+        `;
+      }
+    }
+
+    // Reconstruct File
+    function reconstructFile(file) {
+      const binaryStrings = file.chunks.map(chunk => 
+        String.fromCharCode(...atob(chunk).split('').map(c => c.charCodeAt(0)))
+      );
+      const binaryString = binaryStrings.join('');
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      return new Blob([bytes], { type: file.fileType });
+    }
+
+    // Download File
+    function downloadFile(url, fileName) {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // Render Users
+    function renderUsers() {
+      usersList.innerHTML = '';
+      userCount.textContent = users.size;
+
+      users.forEach(user => {
+        const div = document.createElement('div');
+        const isOwn = user.id === socket.id;
+        div.className = `user-item ${isOwn ? 'active' : ''}`;
+
+        const initials = user.username.substring(0, 2).toUpperCase();
+
+        div.innerHTML = `
+          <div class="user-avatar">${initials}</div>
+          <div class="user-info">
+            <div class="user-name">${escapeHtml(user.username)} ${isOwn ? '(You)' : ''}</div>
+          </div>
+        `;
+
+        usersList.appendChild(div);
+      });
+    }
+
+    // Update Connection Status
+    function updateConnectionStatus(connected) {
+      const status = connected ? 'Connected' : 'Disconnected';
+      connectionStatus.innerHTML = `
+        <span class="status-dot" style="background: ${connected ? '#4ade80' : '#ef4444'}"></span>
+        <span>${status}</span>
+      `;
+    }
+
+    // Utility Functions
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function formatFileSize(bytes) {
+      if (bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+    }
+
+    function getFileIcon(fileType) {
+      if (fileType.startsWith('image/')) return '🖼️';
+      if (fileType.startsWith('video/')) return '🎥';
+      if (fileType.startsWith('audio/')) return '🎵';
+      if (fileType.includes('pdf')) return '📄';
+      if (fileType.includes('word') || fileType.includes('document')) return '📝';
+      if (fileType.includes('sheet') || fileType.includes('spreadsheet')) return '📊';
+      if (fileType.startsWith('text/')) return '📄';
+      if (fileType.startsWith('application/zip')) return '📦';
+      return '📁';
+    }
+
+    // Auto-restore username and join on page load
+    window.addEventListener('load', () => {
+      // Fix mobile viewport height
+      const setVh = () => {
+        const vh = window.innerHeight * 0.01;
+        document.documentElement.style.setProperty('--vh', `${vh}px`);
+      };
+      setVh();
+      window.addEventListener('resize', setVh);
+
+      // Collapse sidebar by default on mobile
+      if (window.matchMedia('(max-width: 768px)').matches) {
+        document.querySelector('.sidebar').classList.add('collapsed');
+      }
+
+      const savedUsername = localStorage.getItem('chatUsername');
+      if (savedUsername) {
+        usernameInput.value = savedUsername;
+        setTimeout(() => joinChat(), 300);
+      } else {
+        usernameInput.focus();
+        // Ensure disconnect button is hidden on initial load
+        document.getElementById('disconnectBtn').style.display = 'none';
+        document.getElementById('joinBtn').style.display = 'block';
+      }
+    });
+
+    // Toggle sidebar (mobile)
+    document.getElementById('toggleSidebarBtn').addEventListener('click', () => {
+      const sb = document.querySelector('.sidebar');
+      sb.classList.toggle('collapsed');
+    });
+
+    // Auto-resize textarea
+    const autoResize = (el) => {
+      el.style.height = 'auto';
+      el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+    };
+    messageInput.addEventListener('input', () => autoResize(messageInput));
+
+    // PWA Install Prompt
+    let deferredPrompt;
+    const installBtn = document.getElementById('installBtn');
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      installBtn.classList.add('visible');
+      console.log('App can be installed');
+    });
+
+    window.addEventListener('appinstalled', () => {
+      console.log('App installed successfully');
+      deferredPrompt = null;
+      installBtn.classList.remove('visible');
+    });
+
+    // Install App Function
+    async function installApp() {
+      if (deferredPrompt) {
+        // Browser supports PWA installation
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        console.log(`User response to the install prompt: ${outcome}`);
+        deferredPrompt = null;
+      } else {
+        // Manual installation instructions
+        const platform = /iPhone|iPad|iPod|Android/.test(navigator.userAgent) ? 'mobile' : 'desktop';
+        
+        let instructions = '';
+        if (platform === 'mobile') {
+          if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+            instructions = '📱 Safari (iPhone/iPad):\n1. Tap the Share button (bottom right)\n2. Select "Add to Home Screen"\n3. Enter app name and tap Add\n\nChrome (Android):\n1. Tap the menu (⋮)\n2. Select "Install app" or "Add to Home Screen"';
+          } else {
+            instructions = '📱 Android:\n1. Tap the menu (⋮)\n2. Select "Install app" or "Add to Home Screen"\n\nOr: Use your browser\'s address bar options';
+          }
+        } else {
+          instructions = '💻 Desktop:\n1. Check if the address bar shows an install icon\n2. Or press Ctrl+Shift+M (some browsers)\n3. Or right-click and select "Install app"\n\nNote: Only works on localhost or HTTPS';
+        }
+        
+        alert('📥 Install as App\n\n' + instructions);
+      }
+    }
+
+    // Backend URL Configuration Helper
+    window.setBackendUrl = (url) => {
+      localStorage.setItem('backendUrl', url);
+      alert('Backend URL saved! Please reload the page.');
+    };
+
+    window.clearBackendUrl = () => {
+      localStorage.removeItem('backendUrl');
+      alert('Backend URL cleared! Please reload the page.');
+    };
+
+    window.getBackendUrl = () => {
+      console.log('Current backend URL:', getBackendUrl());
+      return getBackendUrl();
+    };
+
+    // Drag and Drop File Upload
+    const dropOverlay = document.getElementById('dropOverlay');
+    let dragCounter = 0;
+
+    document.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounter++;
+      dropOverlay.classList.add('active');
+    });
+
+    document.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounter--;
+      if (dragCounter === 0) {
+        dropOverlay.classList.remove('active');
+      }
+    });
+
+    document.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+
+    document.addEventListener('drop', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragCounter = 0;
+      dropOverlay.classList.remove('active');
+
+      const files = e.dataTransfer.files;
+      if (files && files.length > 0) {
+        // Share each dropped file
+        for (let i = 0; i < files.length; i++) {
+          if (currentUser) {
+            shareFile(files[i]);
+          }
+        }
+      }
+    });
+  </script>
+</body>
+</html>
