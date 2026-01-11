@@ -294,6 +294,52 @@ io.on('connection', (socket) => {
     console.log(`Friend pair created: ${user.username} <-> ${codeData.username}`);
   });
 
+  // Handle unfriend
+  socket.on('unfriend', (friendUserId) => {
+    const userId = activeSockets.get(socket.id);
+    const user = registeredUsers.get(userId);
+    
+    if (!user) {
+      socket.emit('unfriend-error', { error: 'User not found' });
+      return;
+    }
+    
+    const friend = registeredUsers.get(friendUserId);
+    if (!friend) {
+      socket.emit('unfriend-error', { error: 'Friend not found' });
+      return;
+    }
+    
+    // Remove bidirectional connection
+    const userFriends = friendPairs.get(userId);
+    const friendFriends = friendPairs.get(friendUserId);
+    
+    if (userFriends) {
+      userFriends.delete(friendUserId);
+      if (userFriends.size === 0) {
+        friendPairs.delete(userId);
+      }
+    }
+    
+    if (friendFriends) {
+      friendFriends.delete(userId);
+      if (friendFriends.size === 0) {
+        friendPairs.delete(friendUserId);
+      }
+    }
+    
+    saveFriends();
+    
+    // Notify both users
+    socket.emit('unfriended', { userId: friendUserId, username: friend.username });
+    
+    if (friend.socketId) {
+      io.to(friend.socketId).emit('unfriended', { userId: user.userId, username: user.username });
+    }
+    
+    console.log(`Friend connection removed: ${user.username} <-> ${friend.username}`);
+  });
+
   // Handle request for friend's P2P address
   socket.on('request-friend-address', (friendUserId) => {
     const userId = activeSockets.get(socket.id);

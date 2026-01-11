@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Friend Chat</title>
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; height: 100vh; overflow: hidden; }
+    
+    /* Registration */
+    .registration { position: fixed; inset: 0; background: linear-gradient(135deg, #667eea, #764ba2); 
+      display: flex; align-items: center; justify-content: center; z-index: 9999; }
+    .registration.hidden { display: none; }
+    .reg-card { background: white; padding: 40px; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      max-width: 400px; width: 90%; text-align: center; }
+    .reg-card h1 { font-size: 32px; margin-bottom: 20px; color: #667eea; }
+    .reg-card input { width: 100%; padding: 14px; border: 2px solid #e5e7eb; border-radius: 12px; 
+      font-size: 16px; margin-bottom: 20px; }
+    .reg-card button { width: 100%; padding: 14px; background: #667eea; color: white; border: none;
+      border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; }
+    
+    /* Main Layout */
+    .container { display: flex; height: 100vh; overflow: hidden; }
+    .sidebar { width: 300px; background: #2d3748; color: white; display: flex; flex-direction: column; }
+    .sidebar-header { padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+    .user-name { font-size: 18px; font-weight: 600; margin-bottom: 10px; }
+    .add-friend-btn { width: 100%; padding: 12px; background: #667eea; border: none; color: white;
+      border-radius: 8px; font-weight: 600; cursor: pointer; margin-top: 10px; }
+    
+    .friends-list { flex: 1; overflow-y: auto; padding: 10px; }
+    .friend-item { padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 8px;
+      cursor: pointer; transition: background 0.2s; }
+    .friend-item:hover { background: rgba(255,255,255,0.1); }
+    .friend-item.active { background: #667eea; }
+    .friend-name { font-weight: 600; }
+    .friend-status { font-size: 12px; color: #a0aec0; }
+    .friend-status.online { color: #48bb78; }
+    .unfriend-btn { background: transparent; border: none; color: #e53e3e; cursor: pointer; 
+      padding: 6px 10px; border-radius: 6px; font-size: 12px; transition: background 0.2s; opacity: 0; }
+    .friend-item:hover .unfriend-btn { opacity: 1; }
+    .unfriend-btn:hover { background: rgba(229, 62, 62, 0.1); }
+    
+    .empty { padding: 40px 20px; text-align: center; color: #a0aec0; }
+    
+    /* Chat */
+    .main { flex: 1; display: flex; flex-direction: column; background: #f7fafc; height: 100%; overflow: hidden; }
+    .chat-header { padding: 20px; background: white; border-bottom: 1px solid #e2e8f0; flex-shrink: 0; }
+    .chat-title { font-size: 18px; font-weight: 600; }
+    
+    .messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+    .message { display: flex; gap: 10px; max-width: 70%; }
+    .message.own { margin-left: auto; flex-direction: row-reverse; }
+    .message-bubble { padding: 10px 14px; border-radius: 12px; background: white; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+    .message.own .message-bubble { background: #667eea; color: white; }
+    .message-user { font-size: 12px; font-weight: 600; color: #667eea; margin-bottom: 4px; }
+    .message.own .message-user { color: rgba(255,255,255,0.8); }
+    .message-time { font-size: 10px; color: #a0aec0; margin-top: 4px; }
+    
+    /* File Messages */
+    .file-message { padding: 10px; border-radius: 12px; min-width: 220px; max-width: 100%; }
+    .file-info { display: flex; align-items: center; gap: 12px; }
+    .file-icon { font-size: 32px; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.05); border-radius: 10px; }
+    .message.own .file-icon { background: rgba(255,255,255,0.2); }
+    .file-details { flex: 1; overflow: hidden; }
+    .file-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .file-size { font-size: 12px; opacity: 0.8; margin-top: 2px; }
+    .file-progress { height: 4px; background: rgba(0,0,0,0.1); border-radius: 2px; overflow: hidden; width: 100%; margin-top: 8px; }
+    .message.own .file-progress { background: rgba(255,255,255,0.3); }
+    .file-progress-bar { height: 100%; width: 0%; transition: width 0.2s; background: #48bb78; }
+    .message.own .file-progress-bar { background: white; }
+    .download-btn { padding: 6px 12px; background: #48bb78; color: white; border: none; border-radius: 6px;
+      font-size: 12px; font-weight: 600; cursor: pointer; margin-top: 8px; }
+    .message.own .download-btn { background: white; color: #667eea; }
+    .cancel-btn { padding: 6px 12px; background: #e53e3e; color: white; border: none; border-radius: 6px;
+      font-size: 12px; font-weight: 600; cursor: pointer; margin-top: 8px; }
+    .message.own .cancel-btn { background: white; color: #e53e3e; }
+    .media-preview { margin-top: 8px; }
+    .media-preview img, .media-preview video { max-width: 100%; border-radius: 8px; }
+    #fileInput { display: none; }
+    .icon-btn { background: transparent; border: none; cursor: pointer; font-size: 20px; padding: 8px;
+      color: #667eea; border-radius: 50%; transition: background 0.2s; }
+    .icon-btn:hover { background: rgba(99, 102, 241, 0.1); }
+    .icon-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    
+    .hamburger-btn { display: none; position: fixed; top: 15px; left: 15px; z-index: 1001; background: rgba(102, 126, 234, 0.95);
+      border: none; font-size: 24px; color: white; width: 45px; height: 45px; border-radius: 10px; cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15); transition: all 0.3s; }
+    .hamburger-btn:hover { background: rgba(102, 126, 234, 1); transform: scale(1.05); }
+    
+    .input-area { padding: 20px; background: white; border-top: 1px solid #e2e8f0; display: flex; gap: 10px; flex-shrink: 0; }
+    .message-input { flex: 1; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px; }
+    .send-btn { padding: 12px 24px; background: #667eea; color: white; border: none; border-radius: 8px;
+      font-weight: 600; cursor: pointer; flex-shrink: 0; }
+    .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    
+    /* Modal */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none;
+      align-items: center; justify-content: center; z-index: 10000; }
+    .modal-overlay.active { display: flex; }
+    .modal { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      max-width: 400px; width: 90%; text-align: center; }
+    .modal h2 { margin-bottom: 20px; }
+    .code-display { font-size: 36px; font-weight: 700; color: #667eea; letter-spacing: 8px; margin: 20px 0;
+      padding: 20px; background: #f7fafc; border-radius: 12px; }
+    .modal input { width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px;
+      text-align: center; font-size: 18px; letter-spacing: 4px; margin-bottom: 20px; }
+    .modal-buttons { display: flex; gap: 10px; }
+    .modal-buttons button { flex: 1; padding: 12px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
+    .btn-primary { background: #667eea; color: white; }
+    .btn-secondary { background: #e2e8f0; color: #2d3748; }
+    .countdown { font-size: 12px; color: #e53e3e; margin-top: 10px; }
+    
+    /* Mobile Responsive Styles */
+    @media (max-width: 768px) {
+      html, body { overflow: hidden; height: 100%; position: fixed; width: 100%; }
+      
+      .container { flex-direction: row; height: 100vh; height: 100dvh; position: fixed; width: 100%; top: 0; left: 0; }
+      
+      .sidebar { position: fixed; left: -100%; width: 80%; max-width: 300px; height: 100vh; height: 100dvh; z-index: 1000;
+        transition: left 0.3s ease; box-shadow: 2px 0 10px rgba(0,0,0,0.2); }
+      .sidebar.open { left: 0; }
+      
+      .hamburger-btn { display: block; }
+      
+      .main { display: flex !important; flex: 1; width: 100%; height: 100vh; height: 100dvh; position: relative; }
+      
+      .chat-header { padding: 15px 15px 15px 60px; }
+      
+      .messages { padding: 15px; flex: 1; min-height: 0; }
+      
+      .input-area { padding: 12px; position: relative; bottom: 0; width: 100%; box-sizing: border-box; }
+      
+      .friend-item { padding: 12px 15px; }
+      
+      .message-bubble { max-width: 85%; }
+      
+      .modal { width: 90%; max-width: 400px; }
+      
+      .file-message { max-width: 90%; }
+      
+      .media-preview img, .media-preview video { max-width: 100%; }
+    }
+    
+    @media (max-width: 480px) {
+      .sidebar { width: 85%; max-width: none; }
+      
+      .chat-header { padding: 12px 12px 12px 55px; }
+      .chat-title { font-size: 16px; }
+      
+      .messages { padding: 10px; }
+      
+      .input-area { padding: 10px; gap: 6px; }
+      
+      .message-bubble { font-size: 14px; padding: 10px 12px; }
+      
+      .message-input { font-size: 16px; padding: 10px; }
+      
+      .send-btn { padding: 10px 14px; font-size: 14px; }
+      
+      .icon-btn { font-size: 18px; padding: 6px; }
+      
+      .modal { width: 95%; }
+      
+      .code-display { font-size: 28px; letter-spacing: 4px; }
+      
+      .modal input { font-size: 16px; letter-spacing: 2px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Hamburger Menu Button -->
+  <button class="hamburger-btn" id="hamburgerBtn" onclick="toggleSidebar()">☰</button>
+  
+  <!-- Registration Screen -->
+  <div class="registration" id="regScreen">
+    <div class="reg-card">
+      <h1>👋 Welcome</h1>
+      <p>Enter your name to start</p>
+      <input type="text" id="regName" placeholder="Your name" maxlength="20" />
+      <button onclick="register()">Continue</button>
+    </div>
+  </div>
+
+  <!-- Main App -->
+  <div class="container" id="mainContainer">
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <div class="user-name" id="userName">Loading...</div>
+        <div id="status">Connecting...</div>
+        <button class="add-friend-btn" onclick="openAddFriend()">+ Add Friend</button>
+      </div>
+      <div class="friends-list" id="friendsList">
+        <div class="empty">No friends yet<br>Add a friend to start!</div>
+      </div>
+    </div>
+
+    <div class="main" id="mainChat">
+      <div class="chat-header">
+        <div class="chat-title" id="chatTitle">Select a friend</div>
+      </div>
+      <div class="messages" id="messages">
+        <div class="empty">Select a friend to chat</div>
+      </div>
+      <div class="input-area">
+        <button class="icon-btn" id="fileBtn" title="Send file" disabled>📎</button>
+        <input type="text" class="message-input" id="msgInput" placeholder="Type a message..." disabled />
+        <button class="send-btn" id="sendBtn" onclick="sendMsg()" disabled>Send</button>
+      </div>
+      <input type="file" id="fileInput" accept="*">
+    </div>
+  </div>
+
+  <!-- Sidebar Overlay for Mobile -->
+  <div id="sidebarOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999;" onclick="closeSidebar()"></div>
+
+  <!-- Add Friend Modal -->
+  <div class="modal-overlay" id="addFriendModal">
+    <div class="modal">
+      <h2>Add Friend</h2>
+      <div id="genSection">
+        <button class="btn-primary" style="width:100%; padding:14px; margin-bottom:20px;" onclick="genCode()">
+          Generate My Code
+        </button>
+      </div>
+      <div id="codeSection" style="display:none;">
+        <p>Share this code:</p>
+        <div class="code-display" id="codeDisplay">------</div>
+        <div class="countdown" id="countdown"></div>
+      </div>
+      <div style="margin:20px 0; color:#a0aec0;">OR</div>
+      <input type="text" id="codeInput" placeholder="Enter friend's code" maxlength="6" />
+      <div class="modal-buttons">
+        <button class="btn-secondary" onclick="closeAddFriend()">Cancel</button>
+        <button class="btn-primary" onclick="enterCode()">Add</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const socket = io(window.location.origin, { transports: ['websocket'], reconnection: true });
+    let currentUser = null;
+    let friends = new Map();
+    let selectedFriend = null;
+    let pc = null, dataChannel = null, countdownTimer = null;
+    const files = new Map(); // Track file transfers
+    let pendingChunkMeta = new Map(); // Track incoming file chunks
+    const activeTransfers = new Map(); // Track ongoing transfers for cancellation
+    const cancelledFiles = new Set(); // Track cancelled file IDs
+
+    // Init
+    function init() {
+      const saved = localStorage.getItem('chatUser');
+      if (saved) {
+        const user = JSON.parse(saved);
+        currentUser = user;
+        socket.emit('login', user.userId);
+        document.getElementById('regScreen').classList.add('hidden');
+      }
+    }
+
+    function register() {
+      const name = document.getElementById('regName').value.trim();
+      if (!name) return alert('Enter your name');
+      socket.emit('register', name);
+    }
+
+    // Socket events
+    socket.on('connect', () => document.getElementById('status').textContent = 'Connected');
+    socket.on('disconnect', () => document.getElementById('status').textContent = 'Disconnected');
+    
+    socket.on('registered', (data) => {
+      currentUser = data;
+      localStorage.setItem('chatUser', JSON.stringify({ userId: data.userId, username: data.username }));
+      document.getElementById('regScreen').classList.add('hidden');
+      document.getElementById('userName').textContent = data.username;
+      data.friends.forEach(f => friends.set(f.userId, f));
+      renderFriends();
+    });
+    
+    socket.on('logged-in', (data) => {
+      currentUser = data;
+      document.getElementById('userName').textContent = data.username;
+      data.friends.forEach(f => friends.set(f.userId, f));
+      renderFriends();
+    });
+    
+    socket.on('login-failed', () => {
+      localStorage.removeItem('chatUser');
+      document.getElementById('regScreen').classList.remove('hidden');
+    });
+    
+    socket.on('friend-code-generated', (data) => {
+      document.getElementById('codeDisplay').textContent = data.code;
+      document.getElementById('genSection').style.display = 'none';
+      document.getElementById('codeSection').style.display = 'block';
+      startCountdown(new Date(data.expiresAt));
+    });
+    
+    socket.on('friend-code-error', (data) => alert(data.error));
+    
+    socket.on('friend-added', (f) => {
+      friends.set(f.userId, f);
+      renderFriends();
+      closeAddFriend();
+      alert(f.username + ' added!');
+    });
+    
+    socket.on('friend-online', (data) => {
+      const f = friends.get(data.userId);
+      if (f) { f.online = true; renderFriends(); }
+    });
+    
+    socket.on('friend-offline', (data) => {
+      const f = friends.get(data.userId);
+      if (f) { f.online = false; renderFriends(); }
+    });
+    
+    socket.on('unfriended', (data) => {
+      friends.delete(data.userId);
+      if (selectedFriend && selectedFriend.userId === data.userId) {
+        selectedFriend = null;
+        document.getElementById('chatTitle').textContent = 'Select a friend';
+        document.getElementById('msgInput').disabled = true;
+        document.getElementById('sendBtn').disabled = true;
+        document.getElementById('messages').innerHTML = '<div class="empty">Select a friend to chat</div>';
+      }
+      renderFriends();
+      alert(data.username + ' removed from friends');
+    });
+    
+    socket.on('unfriend-error', (data) => alert(data.error));
+
+    // P2P
+    socket.on('p2p-begin', async ({ role, peerId, friendUserId }) => {
+      console.log('P2P begin', role);
+      pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+      
+      pc.ondatachannel = (e) => { dataChannel = e.channel; setupDataChannel(friendUserId); };
+      
+      if (role === 'initiator') {
+        dataChannel = pc.createDataChannel('chat');
+        setupDataChannel(friendUserId);
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        setTimeout(() => socket.emit('webrtc-offer', { to: peerId, sdp: pc.localDescription }), 1000);
+      }
+    });
+    
+    socket.on('webrtc-offer', async ({ from, sdp }) => {
+      if (!pc) return;
+      await pc.setRemoteDescription(sdp);
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      setTimeout(() => socket.emit('webrtc-answer', { to: from, sdp: pc.localDescription }), 1000);
+    });
+    
+    socket.on('webrtc-answer', async ({ sdp }) => {
+      if (!pc) return;
+      await pc.setRemoteDescription(sdp);
+    });
+
+    function setupDataChannel(friendUserId) {
+      if (!dataChannel) return;
+      dataChannel.binaryType = 'arraybuffer';
+      dataChannel.onopen = () => {
+        console.log('P2P connected');
+        loadMessages(friendUserId);
+      };
+      dataChannel.onmessage = (e) => {
+        const data = e.data;
+        if (typeof data === 'string') {
+          const msg = JSON.parse(data);
+          if (msg.type === 'message') {
+            addMsg({ username: msg.username, text: msg.text, timestamp: msg.timestamp, fromFriend: true });
+            saveMsg(msg.fromUserId, msg);
+          } else if (msg.type === 'file-start') {
+            handleFileStart(msg);
+          } else if (msg.type === 'chunk-meta') {
+            pendingChunkMeta.set(msg.fileId, { index: msg.chunkIndex, total: msg.total });
+          } else if (msg.type === 'file-complete') {
+            completeFileTransfer(msg.fileId);
+          } else if (msg.type === 'file-cancel') {
+            handleFileCancel(msg.fileId);
+          }
+        } else if (data instanceof ArrayBuffer) {
+          handleFileChunk(new Uint8Array(data));
+        }
+      };
+    }
+
+    function sendP2P(text) {
+      if (!dataChannel || dataChannel.readyState !== 'open') return alert('Not connected');
+      const msg = { type: 'message', fromUserId: currentUser.userId, username: currentUser.username, 
+        text, timestamp: new Date().toISOString() };
+      dataChannel.send(JSON.stringify(msg));
+      addMsg({ username: currentUser.username, text, timestamp: msg.timestamp, fromFriend: false });
+      saveMsg(selectedFriend.userId, msg);
+    }
+
+    // File handling
+    async function shareFile(file) {
+      if (!dataChannel || dataChannel.readyState !== 'open') return alert('Not connected to friend');
+      
+      const fileId = Math.random().toString(36).substr(2, 9);
+      const chunkSize = 64 * 1024; // 64KB chunks
+      const totalChunks = Math.ceil(file.size / chunkSize);
+      
+      // Track this transfer for cancellation
+      activeTransfers.set(fileId, { cancelled: false });
+      
+      const fileInfo = {
+        type: 'file-start',
+        fileId,
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        totalChunks,
+        username: currentUser.username,
+        fromUserId: currentUser.userId
+      };
+      
+      // Display on sender's side
+      addFileMsg(fileInfo, true);
+      
+      // Send file info
+      dataChannel.send(JSON.stringify(fileInfo));
+      
+      // Send chunks
+      for (let i = 0; i < totalChunks; i++) {
+        // Check if cancelled
+        if (activeTransfers.get(fileId)?.cancelled || cancelledFiles.has(fileId)) {
+          console.log('Transfer cancelled by sender:', fileId);
+          cancelledFiles.add(fileId);
+          dataChannel.send(JSON.stringify({ type: 'file-cancel', fileId }));
+          return;
+        }
+        
+        const start = i * chunkSize;
+        const end = Math.min(start + chunkSize, file.size);
+        const chunk = file.slice(start, end);
+        const buffer = await chunk.arrayBuffer();
+        
+        // Send metadata
+        dataChannel.send(JSON.stringify({ type: 'chunk-meta', fileId, chunkIndex: i, total: totalChunks }));
+        // Send binary data
+        dataChannel.send(new Uint8Array(buffer));
+        
+        // Update progress
+        updateFileProgress(fileId, i + 1, totalChunks);
+        
+        // Small delay to avoid overwhelming
+        if (i % 4 === 0) await new Promise(resolve => setTimeout(resolve, 0));
+      }
+      
+      // Mark complete
+      dataChannel.send(JSON.stringify({ type: 'file-complete', fileId, fileName: file.name }));
+      completeFileTransfer(fileId);
+      activeTransfers.delete(fileId);
+    }
+
+    function handleFileStart(fileInfo) {
+      files.set(fileInfo.fileId, {
+        ...fileInfo,
+        chunks: [],
+        receivedSet: new Set()
+      });
+      addFileMsg(fileInfo, false);
+    }
+
+    function handleFileChunk(uint8) {
+      for (const [fileId, meta] of pendingChunkMeta.entries()) {
+        // Skip if cancelled
+        if (cancelledFiles.has(fileId)) {
+          console.log('Ignoring chunk for cancelled file:', fileId);
+          pendingChunkMeta.delete(fileId);
+          continue;
+        }
+        
+        const file = files.get(fileId);
+        if (!file || file.chunks[meta.index]) continue;
+        
+        file.chunks[meta.index] = uint8;
+        file.receivedSet.add(meta.index);
+        updateFileProgress(fileId, file.receivedSet.size, file.totalChunks);
+        pendingChunkMeta.delete(fileId);
+        break;
+      }
+    }
+
+    function addFileMsg(fileInfo, isOwn) {
+      const msgDiv = document.getElementById('messages');
+      if (msgDiv.querySelector('.empty')) msgDiv.innerHTML = '';
+      
+      const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const fileSize = formatFileSize(fileInfo.fileSize);
+      const fileIcon = getFileIcon(fileInfo.fileType);
+      
+      const cancelBtn = isOwn ? `<button class="cancel-btn" id="cancel-${fileInfo.fileId}" onclick="cancelFileTransfer('${fileInfo.fileId}')">Cancel</button>` : '';
+      
+      const div = document.createElement('div');
+      div.className = `message ${isOwn ? 'own' : ''}`;
+      div.innerHTML = `<div class="message-bubble file-message" id="file-${fileInfo.fileId}">
+        <div class="file-info">
+          <div class="file-icon">${fileIcon}</div>
+          <div class="file-details">
+            <div class="file-name">${esc(fileInfo.fileName)}</div>
+            <div class="file-size">${fileSize}</div>
+          </div>
+        </div>
+        ${cancelBtn}
+        <div class="file-progress">
+          <div class="file-progress-bar" id="progress-${fileInfo.fileId}"></div>
+        </div>
+        <div class="message-time">${time}</div>
+      </div>`;
+      
+      msgDiv.appendChild(div);
+      msgDiv.scrollTop = msgDiv.scrollHeight;
+    }
+
+    function updateFileProgress(fileId, completed, total) {
+      const progressBar = document.getElementById(`progress-${fileId}`);
+      if (progressBar) {
+        const percentage = Math.round((completed / total) * 100);
+        progressBar.style.width = percentage + '%';
+      }
+    }
+
+    function completeFileTransfer(fileId) {
+      const file = files.get(fileId);
+      if (!file) return;
+      
+      const fileElement = document.getElementById(`file-${fileId}`);
+      if (!fileElement) return;
+      
+      // Force progress to 100%
+      const progressBar = document.getElementById(`progress-${fileId}`);
+      if (progressBar) progressBar.style.width = '100%';
+      
+      // Reconstruct file
+      const blob = new Blob(file.chunks, { type: file.fileType });
+      const url = URL.createObjectURL(blob);
+      const fileIcon = getFileIcon(file.fileType);
+      const fileSize = formatFileSize(file.fileSize);
+      
+      let previewHtml = '';
+      if (file.fileType.startsWith('image/')) {
+        previewHtml = `<div class="media-preview"><img src="${url}" alt="${esc(file.fileName)}"></div>`;
+      } else if (file.fileType.startsWith('video/')) {
+        previewHtml = `<div class="media-preview"><video src="${url}" controls playsinline muted></video></div>`;
+      }
+      
+      fileElement.innerHTML = `
+        <div class="file-info">
+          <div class="file-icon">${fileIcon}</div>
+          <div class="file-details">
+            <div class="file-name">${esc(file.fileName)}</div>
+            <div class="file-size">${fileSize}</div>
+          </div>
+        </div>
+        ${previewHtml}
+        <button class="download-btn" onclick="downloadFile('${url}', '${esc(file.fileName)}')">Download</button>
+      `;
+    }
+
+    function cancelFileTransfer(fileId) {
+      const transfer = activeTransfers.get(fileId);
+      if (transfer) {
+        transfer.cancelled = true;
+        cancelledFiles.add(fileId);
+      }
+      
+      // Update UI
+      const fileElement = document.getElementById(`file-${fileId}`);
+      if (fileElement) {
+        fileElement.innerHTML = `
+          <div class="file-info">
+            <div class="file-icon">❌</div>
+            <div class="file-details">
+              <div class="file-name">Transfer cancelled</div>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    function handleFileCancel(fileId) {
+      cancelledFiles.add(fileId);
+      files.delete(fileId);
+      
+      const fileElement = document.getElementById(`file-${fileId}`);
+      if (fileElement) {
+        fileElement.innerHTML = `
+          <div class="file-info">
+            <div class="file-icon">❌</div>
+            <div class="file-details">
+              <div class="file-name">Transfer cancelled</div>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    function downloadFile(url, fileName) {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      a.click();
+    }
+
+    function formatFileSize(bytes) {
+      if (bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+    }
+
+    function getFileIcon(fileType) {
+      if (fileType.startsWith('image/')) return '🖼️';
+      if (fileType.startsWith('video/')) return '🎥';
+      if (fileType.startsWith('audio/')) return '🎵';
+      if (fileType.includes('pdf')) return '📄';
+      if (fileType.includes('word') || fileType.includes('document')) return '📝';
+      if (fileType.includes('sheet') || fileType.includes('spreadsheet')) return '📊';
+      if (fileType.startsWith('text/')) return '📄';
+      if (fileType.includes('zip') || fileType.includes('rar')) return '📦';
+      return '📁';
+    }
+
+    // UI
+    function renderFriends() {
+      const list = document.getElementById('friendsList');
+      if (friends.size === 0) {
+        list.innerHTML = '<div class="empty">No friends yet<br>Add a friend to start!</div>';
+        return;
+      }
+      let html = '';
+      friends.forEach(f => {
+        const active = selectedFriend && selectedFriend.userId === f.userId ? 'active' : '';
+        const status = f.online ? 'online' : '';
+        html += `<div class="friend-item ${active}">
+          <div class="friend-content" onclick="selectFriend('${f.userId}')">
+            <div class="friend-name">${esc(f.username)}</div>
+            <div class="friend-status ${status}">${f.online ? 'Online' : 'Offline'}</div>
+          </div>
+          <button class="unfriend-btn" onclick="event.stopPropagation(); unfriend('${f.userId}', '${esc(f.username)}')" title="Remove friend">✕</button>
+        </div>`;
+      });
+      list.innerHTML = html;
+    }
+
+    function selectFriend(id) {
+      selectedFriend = friends.get(id);
+      if (!selectedFriend) return;
+      renderFriends();
+      document.getElementById('chatTitle').textContent = selectedFriend.username;
+      document.getElementById('msgInput').disabled = false;
+      document.getElementById('sendBtn').disabled = false;
+      document.getElementById('fileBtn').disabled = false;
+      loadMessages(id);
+      if (selectedFriend.online) socket.emit('request-friend-address', id);
+    }
+
+    function addMsg(msg) {
+      const msgDiv = document.getElementById('messages');
+      if (msgDiv.querySelector('.empty')) msgDiv.innerHTML = '';
+      const isOwn = !msg.fromFriend;
+      const time = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const div = document.createElement('div');
+      div.className = `message ${isOwn ? 'own' : ''}`;
+      div.innerHTML = `<div class="message-bubble">
+        ${!isOwn ? `<div class="message-user">${esc(msg.username)}</div>` : ''}
+        <div>${esc(msg.text)}</div>
+        <div class="message-time">${time}</div>
+      </div>`;
+      msgDiv.appendChild(div);
+      msgDiv.scrollTop = msgDiv.scrollHeight;
+    }
+
+    function sendMsg() {
+      const input = document.getElementById('msgInput');
+      const text = input.value.trim();
+      if (!text || !selectedFriend) return;
+      sendP2P(text);
+      input.value = '';
+    }
+
+    document.getElementById('msgInput').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') sendMsg();
+    });
+
+    document.getElementById('fileBtn').addEventListener('click', () => {
+      document.getElementById('fileInput').click();
+    });
+
+    document.getElementById('fileInput').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        shareFile(file);
+        e.target.value = ''; // Reset input
+      }
+    });
+
+    // Storage
+    function saveMsg(friendId, msg) {
+      const key = `msgs_${currentUser.userId}_${friendId}`;
+      const msgs = JSON.parse(localStorage.getItem(key) || '[]');
+      msgs.push(msg);
+      localStorage.setItem(key, JSON.stringify(msgs.slice(-100)));
+    }
+
+    function loadMessages(friendId) {
+      const key = `msgs_${currentUser.userId}_${friendId}`;
+      const msgs = JSON.parse(localStorage.getItem(key) || '[]');
+      const msgDiv = document.getElementById('messages');
+      msgDiv.innerHTML = '';
+      if (msgs.length === 0) {
+        msgDiv.innerHTML = '<div class="empty">Start chatting!</div>';
+        return;
+      }
+      msgs.forEach(m => addMsg({ username: m.username, text: m.text, timestamp: m.timestamp, 
+        fromFriend: m.fromUserId !== currentUser.userId }));
+    }
+
+    // Modal
+    function openAddFriend() {
+      document.getElementById('addFriendModal').classList.add('active');
+      document.getElementById('genSection').style.display = 'block';
+      document.getElementById('codeSection').style.display = 'none';
+      document.getElementById('codeInput').value = '';
+    }
+
+    function closeAddFriend() {
+      document.getElementById('addFriendModal').classList.remove('active');
+      if (countdownTimer) clearInterval(countdownTimer);
+    }
+
+    function genCode() {
+      socket.emit('generate-friend-code');
+    }
+
+    function enterCode() {
+      const code = document.getElementById('codeInput').value.trim();
+      if (code.length !== 6) return alert('Enter 6-digit code');
+      socket.emit('enter-friend-code', code);
+    }
+
+    function startCountdown(expiresAt) {
+      const update = () => {
+        const diff = expiresAt - new Date();
+        if (diff <= 0) {
+          document.getElementById('countdown').textContent = 'Expired';
+          clearInterval(countdownTimer);
+          return;
+        }
+        const m = Math.floor(diff / 60000);
+        const s = Math.floor((diff % 60000) / 1000);
+        document.getElementById('countdown').textContent = `Expires in ${m}:${s.toString().padStart(2, '0')}`;
+      };
+      update();
+      countdownTimer = setInterval(update, 1000);
+    }
+
+    function unfriend(friendId, friendName) {
+      if (!confirm(`Remove ${friendName} from friends?`)) return;
+      socket.emit('unfriend', friendId);
+      // Clear local messages for this friend
+      const key = `msgs_${currentUser.userId}_${friendId}`;
+      localStorage.removeItem(key);
+    }
+
+    function esc(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Mobile sidebar toggle functions
+    function toggleSidebar() {
+      const sidebar = document.querySelector('.sidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      const isOpen = sidebar.classList.contains('open');
+      
+      if (isOpen) {
+        sidebar.classList.remove('open');
+        overlay.style.display = 'none';
+      } else {
+        sidebar.classList.add('open');
+        overlay.style.display = 'block';
+      }
+    }
+
+    function closeSidebar() {
+      const sidebar = document.querySelector('.sidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      sidebar.classList.remove('open');
+      overlay.style.display = 'none';
+    }
+
+    // Close sidebar when selecting a friend on mobile
+    const originalSelectFriend = selectFriend;
+    selectFriend = function(friendUserId) {
+      originalSelectFriend(friendUserId);
+      if (window.innerWidth <= 768) {
+        closeSidebar();
+      }
+    };
+
+    window.addEventListener('load', init);
+  </script>
+</body>
+</html>

@@ -1,0 +1,51 @@
+[
+  {
+    "userId": "user_1768113028422_ulybrnwub",
+    "username": "Jk",
+    "socketId": "wksIrutFaHKe1hJzAABB",
+    "address": "192.168.0.203",
+    "registeredAt": "2026-01-11T06:30:28.422Z"
+  },
+  {
+    "userId": "user_1768113048439_nzsac6wqe",
+    "username": "Tab",
+    "socketId": null,
+    "address": "192.168.0.131",
+    "registeredAt": "2026-01-11T06:30:48.439Z"
+  },
+  {
+    "userId": "user_1768113150443_u9ykdmkk3",
+    "username": "pc",
+    "socketId": "gk27cZnia6idFOlvAAAL",
+    "address": "192.168.0.153",
+    "registeredAt": "2026-01-11T06:32:30.443Z"
+  },
+  {
+    "userId": "user_1768113771842_mh722318b",
+    "username": "pc2",
+    "socketId": null,
+    "address": "192.168.0.153",
+    "registeredAt": "2026-01-11T06:42:51.842Z"
+  },
+  {
+    "userId": "user_1768114157982_inr4apimy",
+    "username": "Yy",
+    "socketId": null,
+    "address": "192.168.0.131",
+    "registeredAt": "2026-01-11T06:49:17.982Z"
+  },
+  {
+    "userId": "user_1768114389739_9nwercjkl",
+    "username": "Yy",
+    "socketId": "7m4FZ_Li3rMEcByoAABF",
+    "address": "192.168.0.131",
+    "registeredAt": "2026-01-11T06:53:09.739Z"
+  },
+  {
+    "userId": "user_1768132361616_6l78rq57e",
+    "username": "SIFAT",
+    "socketId": "Ddzn3Ag2reabOlqoAAAD",
+    "address": "192.168.0.101",
+    "registeredAt": "2026-01-11T11:52:41.616Z"
+  }
+]
