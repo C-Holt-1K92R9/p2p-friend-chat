@@ -692,6 +692,7 @@
         document.getElementById('userName').textContent = data.username;
         data.friends.forEach(f => friends.set(f.userId, f));
         renderFriends();
+        requestNotificationPermission();
       });
       
       socket.on('logged-in', (data) => {
@@ -700,6 +701,7 @@
         document.getElementById('userName').textContent = data.username;
         data.friends.forEach(f => friends.set(f.userId, f));
         renderFriends();
+        requestNotificationPermission();
       });
       
       socket.on('login-failed', () => {
@@ -785,6 +787,43 @@
       socket.emit('register', name);
     }
 
+    // Notification system
+    async function requestNotificationPermission() {
+      if (!('Notification' in window)) return;
+      if (Notification.permission === 'granted') return;
+      if (Notification.permission !== 'denied') {
+        await Notification.requestPermission();
+      }
+    }
+
+    function showNotification(title, body, data = {}) {
+      if (!('Notification' in window)) return;
+      if (Notification.permission !== 'granted') return;
+      if (document.hidden === false) return; // Don't notify if app is visible
+      
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        // Use service worker for persistent notifications
+        navigator.serviceWorker.ready.then(registration => {
+          registration.showNotification(title, {
+            body,
+            icon: '/icon-192.svg',
+            badge: '/icon-192.svg',
+            tag: data.tag || 'message',
+            data,
+            requireInteraction: false,
+            vibrate: [200, 100, 200]
+          });
+        });
+      } else {
+        // Fallback to regular notification
+        new Notification(title, {
+          body,
+          icon: '/icon-192.svg',
+          data
+        });
+      }
+    }
+
 function setupDataChannel(friendUserId) {
       if (!dataChannel) return;
       dataChannel.binaryType = 'arraybuffer';
@@ -799,6 +838,11 @@ dataChannel.onmessage = (e) => {
     if (msg.type === 'message') {
       addMsg({ username: msg.username, text: msg.text, timestamp: msg.timestamp, fromFriend: true });
       saveMsg(msg.fromUserId, msg);
+      showNotification(
+        msg.username,
+        msg.text,
+        { type: 'message', fromUserId: msg.fromUserId, username: msg.username }
+      );
     } 
     else if (msg.type === 'file-start') {
       // Check if already cancelled
@@ -929,6 +973,11 @@ async function shareFile(file) {
     function handleFileStart(fileInfo) {
       files.set(fileInfo.fileId, { ...fileInfo, chunks: [], receivedSet: new Set() });
       addFileMsg(fileInfo, false);
+      showNotification(
+        fileInfo.username || 'Friend',
+        `📎 Sending file: ${fileInfo.fileName}`,
+        { type: 'file', fileId: fileInfo.fileId }
+      );
     }
 
     function handleFileChunk(uint8) {
