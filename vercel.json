@@ -1,16 +1,15 @@
 {
   "version": 2,
-  "buildCommand": null,
-  "outputDirectory": "public",
+  "public": true,
   "rewrites": [
     {
       "source": "/(.*)",
-      "destination": "/$1"
+      "destination": "/public/$1"
     }
   ],
   "headers": [
     {
-      "source": "/sw.js",
+      "source": "/public/sw.js",
       "headers": [
         {
           "key": "Cache-Control",
@@ -23,7 +22,7 @@
       ]
     },
     {
-      "source": "/manifest.json",
+      "source": "/public/manifest.json",
       "headers": [
         {
           "key": "Content-Type",
