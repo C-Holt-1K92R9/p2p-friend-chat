@@ -3,7 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#667eea">
   <title>Friend Chat</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/icon-192.svg" type="image/svg+xml">
   <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 <style>
     /* --- 1. VARIABLES & RESET --- */
@@ -136,6 +139,32 @@
     .server-status.success { background: #d1fae5; color: #065f46; }
     .server-status.error { background: #fee2e2; color: #991b1b; }
     .server-status.testing { background: #fef3c7; color: #92400e; }
+
+    /* PWA Install Banner */
+    .pwa-install {
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 11000;
+    }
+    .pwa-install.hidden { display: none; }
+    .pwa-card {
+      background: white;
+      padding: 14px 16px;
+      border-radius: 14px;
+      box-shadow: 0 18px 50px rgba(0,0,0,0.18);
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      max-width: 360px;
+    }
+    .pwa-title { font-weight: 700; color: #111827; }
+    .pwa-text { color: #6b7280; font-size: 13px; }
+    .pwa-actions { margin-left: auto; display: flex; gap: 8px; }
+    .pwa-actions button { padding: 8px 12px; border-radius: 10px; font-weight: 600; border: none; cursor: pointer; }
+    .pwa-actions .btn-primary { background: #6366f1; color: white; }
+    .pwa-actions .btn-secondary { background: #eef2ff; color: #4f46e5; }
 
     /* --- 3. SIDEBAR --- */
     .sidebar {
@@ -488,6 +517,17 @@
       <p>Enter your name to start</p>
       <input type="text" id="regName" placeholder="Your name" maxlength="20" />
       <button onclick="register()">Continue</button>
+    </div>
+  </div>
+
+  <div class="pwa-install hidden" id="pwaInstall">
+    <div class="pwa-card">
+      <div class="pwa-title">Install Friend Chat</div>
+      <div class="pwa-text">Get faster access and offline support.</div>
+      <div class="pwa-actions">
+        <button class="btn-primary" id="pwaInstallBtn">Install</button>
+        <button class="btn-secondary" id="pwaDismissBtn">Not now</button>
+      </div>
     </div>
   </div>
 
@@ -949,9 +989,14 @@ function addFileMsg(fileInfo, isOwn) {
       msgDiv.scrollTop = msgDiv.scrollHeight;
     }
 
+    // Update progress bar width; ensures DOM lookup and guards total=0
     function updateFileProgress(fileId, completed, total) {
+      if (!total) return;
+      const pct = Math.max(0, Math.min(100, Math.round((completed / total) * 100)));
       const progressBar = document.getElementById(`progress-${fileId}`);
-      if (progressBar) progressBar.style.width = Math.round((completed / total) * 100) + '%';
+      if (progressBar) {
+        progressBar.style.width = pct + '%';
+      }
     }
 
 // 4. UPDATED: Complete File (Show preview/download)
@@ -1258,6 +1303,41 @@ function handleFileCancel(fileId) {
     }
 
     window.addEventListener('load', init);
+
+    // PWA install prompt handling
+    let deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      const banner = document.getElementById('pwaInstall');
+      banner.classList.remove('hidden');
+    });
+
+    const installBtn = document.getElementById('pwaInstallBtn');
+    const dismissBtn = document.getElementById('pwaDismissBtn');
+    if (installBtn) {
+      installBtn.addEventListener('click', async () => {
+        if (!deferredPrompt) return;
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+          document.getElementById('pwaInstall').classList.add('hidden');
+        }
+        deferredPrompt = null;
+      });
+    }
+    if (dismissBtn) {
+      dismissBtn.addEventListener('click', () => {
+        document.getElementById('pwaInstall').classList.add('hidden');
+      });
+    }
+
+    // Register service worker for PWA
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(console.error);
+      });
+    }
   </script>
 </body>
 </html>

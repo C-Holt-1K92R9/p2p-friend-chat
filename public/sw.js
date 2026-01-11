@@ -1,8 +1,12 @@
-const CACHE_NAME = 'local-chat-v1';
+const CACHE_NAME = 'local-chat-v2';
 const urlsToCache = [
   '/',
   '/index.html',
   '/manifest.json',
+  '/icon-192.svg',
+  '/icon-512.svg',
+  '/screenshot.png',
+  '/sw.js',
   'https://cdn.socket.io/4.5.4/socket.io.min.js'
 ];
 
