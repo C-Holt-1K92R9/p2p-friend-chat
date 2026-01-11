@@ -54,5 +54,12 @@
     "socketId": "LIqK9Shb2IvRn6knAAAJ",
     "address": "127.0.0.1",
     "registeredAt": "2026-01-11T12:42:15.582Z"
+  },
+  {
+    "userId": "user_1768157528501_wapfevz8d",
+    "username": "Tab",
+    "socketId": "W0XmfW7Qmz20GSvxAAAB",
+    "address": "192.168.0.131",
+    "registeredAt": "2026-01-11T18:52:08.501Z"
   }
 ]

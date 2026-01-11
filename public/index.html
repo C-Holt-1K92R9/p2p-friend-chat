@@ -32,9 +32,6 @@
       color: var(--text-main);
     }
 
-    /* FIX: Hide raw file input */
-    #fileInput { display: none !important; }
-
     /* --- 2. LAYOUT & OVERLAYS --- */
     .container {
       display: flex;
@@ -332,70 +329,108 @@
     }
     .message.own .message-time { text-align: right; }
 
-   /* --- 6. FILE MESSAGES (High Contrast Fix) --- */
+    /* --- 6. FILE MESSAGES --- */
     .file-message {
-      padding: 12px; 
-      border-radius: 12px; 
-      font-size: 14px;
-      position: relative; 
-      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-      min-width: 260px; 
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 14px;
+      border-radius: 14px;
+      min-width: 260px;
       max-width: 100%;
-      display: flex; 
-      flex-direction: column; 
-      gap: 12px;
     }
-    .message.own .file-message { background: var(--bubble-own); color: white; border-top-right-radius: 0; }
-    .message:not(.own) .file-message { background: white; color: #1f2937; border-top-left-radius: 0; }
+    .message.own .file-message { 
+      background: var(--bubble-own); 
+      color: white; 
+      border-top-right-radius: 0; 
+    }
+    .message:not(.own) .file-message { 
+      background: white; 
+      color: #1f2937; 
+      border-top-left-radius: 0; 
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
 
     .file-info { display: flex; align-items: center; gap: 12px; }
     
     .file-icon { 
-      font-size: 28px; width: 48px; height: 48px; 
-      display: flex; align-items: center; justify-content: center;
-      background: rgba(0,0,0,0.05); border-radius: 12px;
+      width: 44px; 
+      height: 44px; 
+      font-size: 22px;
+      display: flex;
+      align-items: center; 
+      justify-content: center; 
+      border-radius: 10px;
+      background: rgba(99,102,241,0.1); 
       flex-shrink: 0;
     }
     .message.own .file-icon { background: rgba(255,255,255,0.2); }
-
-    .file-details { flex: 1; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
-    .file-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
-    .file-size { font-size: 11px; opacity: 0.8; margin-top: 3px; }
     
-    .download-btn, .cancel-btn { 
-        padding: 8px; border-radius: 8px; border: none; 
-        font-size: 13px; font-weight: 600; cursor: pointer; width: 100%; text-align: center; 
-    }
-    .download-btn { background: #10b981; color: white; margin-top: 5px; }
-    .cancel-btn { background: #fee2e2; color: #ef4444; }
-    
-    .message.own .download-btn { background: white; color: #6366f1; }
-    .message.own .cancel-btn { background: rgba(255,255,255,0.9); color: #dc2626; }
-    
-    /* --- PROGRESS BAR VISIBILITY FIX --- */
-    .file-progress { 
-      height: 8px; /* Thicker bar */
-      background: #e5e7eb; /* Light grey background for Receiver */
-      border-radius: 4px; 
+    .file-details { flex: 1; overflow: hidden; }
+    .file-name { 
+      font-weight: 600; 
+      white-space: nowrap; 
       overflow: hidden; 
-      width: 100%; 
-      display: block; 
+      text-overflow: ellipsis;
+      font-size: 14px;
     }
-    /* Sender: Semi-transparent white background */
-    .message.own .file-progress { background: rgba(0,0,0,0.2); }
+    .file-size { 
+      font-size: 11px; 
+      opacity: 0.75; 
+      margin-top: 3px; 
+    }
+
+    .file-progress { 
+      height: 6px; 
+      background: rgba(0,0,0,0.1); 
+      border-radius: 3px; 
+      overflow: hidden;
+    }
+    .message.own .file-progress { background: rgba(255,255,255,0.25); }
     
     .file-progress-bar { 
       height: 100%; 
       width: 0%; 
-      transition: width 0.1s linear; 
-      background: #10b981; /* Green for Receiver */
+      background: #10b981;
+      transition: width 0.3s ease;
     }
-    /* Sender: Solid White Bar */
-    .message.own .file-progress-bar { background: #ffffff !important; }
-    
+    .message.own .file-progress-bar { background: white; }
+
+    .file-status {
+      font-size: 11px;
+      opacity: 0.8;
+      margin-top: 2px;
+    }
+
+    .download-btn { 
+      padding: 8px 14px; 
+      border-radius: 8px; 
+      border: none; 
+      font-size: 13px; 
+      font-weight: 600; 
+      cursor: pointer; 
+      width: 100%;
+      background: #10b981; 
+      color: white;
+      margin-top: 6px;
+    }
+    .message.own .download-btn { 
+      background: rgba(255,255,255,0.9); 
+      color: #6366f1; 
+    }
+    .download-btn:hover { opacity: 0.9; }
+
+    .media-preview { 
+      margin-top: 8px; 
+      border-radius: 8px; 
+      overflow: hidden;
+    }
     .media-preview img, .media-preview video { 
-      width: 100%; border-radius: 8px; margin-top: 8px; display: block; 
+      max-width: 100%; 
+      display: block; 
     }
+
+    #fileInput { display: none; }
 
     /* --- 7. INPUT AREA --- */
     .input-area {
@@ -559,7 +594,7 @@
         <input type="text" class="message-input" id="msgInput" placeholder="Type a message..." disabled />
         <button class="send-btn" id="sendBtn" onclick="sendMsg()" disabled>Send</button>
       </div>
-      <input type="file" id="fileInput" accept="*">
+      <input type="file" id="fileInput" accept="*" />
     </div>
   </div>
 
@@ -589,17 +624,16 @@
 
   <script>
     // Server configuration - Default server URL (Railway)
-    const DEFAULT_SERVER_URL = 'https://p2p-friend-chat-production.up.railway.app';
+    const DEFAULT_SERVER_URL = 'http://localhost:3001';//'https://p2p-friend-chat-production.up.railway.app';
     let SERVER_URL = localStorage.getItem('serverUrl') || DEFAULT_SERVER_URL;
     let socket = null;
     let currentUser = null;
     let friends = new Map();
     let selectedFriend = null;
     let pc = null, dataChannel = null, countdownTimer = null;
-    const files = new Map(); 
-    let pendingChunkMeta = new Map(); 
-    const activeTransfers = new Map(); 
-    const cancelledFiles = new Set(); 
+    
+    // File transfer state
+    const pendingFileTransfers = new Map(); // fileId -> { metadata, chunks[], receivedCount } 
 
     // Initialize on page load - auto-connect to default server
     function init() {
@@ -843,34 +877,12 @@ dataChannel.onmessage = (e) => {
         msg.text,
         { type: 'message', fromUserId: msg.fromUserId, username: msg.username }
       );
-    } 
-    else if (msg.type === 'file-start') {
-      // Check if already cancelled
-      if (cancelledFiles.has(msg.fileId)) return;
-      handleFileStart(msg);
-    } 
-    else if (msg.type === 'chunk-meta') {
-      // Ignore chunks if file is cancelled
-      if (cancelledFiles.has(msg.fileId)) {
-        return;
-      }
-      pendingChunkMeta.set(msg.fileId, { index: msg.chunkIndex, total: msg.total });
-    } 
-    else if (msg.type === 'file-complete') {
-      if (!cancelledFiles.has(msg.fileId)) {
-        completeFileTransfer(msg.fileId);
-      }
-    } 
-    else if (msg.type === 'file-cancel') {
-      handleFileCancel(msg.fileId);
+    } else if (msg.type === 'file-meta' || msg.type === 'file-chunk' || msg.type === 'file-done') {
+      handleFileMessage(msg);
     }
     
   } else if (data instanceof ArrayBuffer) {
-    // Check cancellation before processing chunk
-    const chunkArray = new Uint8Array(data);
-    // We need to check which file this belongs to
-    // Since we can't know, we'll let handleFileChunk check
-    handleFileChunk(chunkArray);
+    // Binary data can be handled here if needed
   }
 };
     }
@@ -884,281 +896,226 @@ dataChannel.onmessage = (e) => {
       saveMsg(selectedFriend.userId, msg);
     }
 
-    // File handling
-// REPLACE your shareFile function with this one
-// REPLACE your shareFile function with this one
-async function shareFile(file) {
-  if (!dataChannel || dataChannel.readyState !== 'open') return alert('Not connected to friend');
-  
-  const fileId = Math.random().toString(36).substr(2, 9);
-  const chunkSize = 16 * 1024; // 16KB chunks are safer
-  const totalChunks = Math.ceil(file.size / chunkSize);
-  
-  activeTransfers.set(fileId, { cancelled: false });
-  
-  const fileInfo = {
-    type: 'file-start',
-    fileId,
-    fileName: file.name,
-    fileSize: file.size,
-    fileType: file.type,
-    totalChunks,
-    username: currentUser.username,
-    fromUserId: currentUser.userId
-  };
-  
-  // 1. Show message locally
-  addFileMsg(fileInfo, true);
-  
-  // 2. Send Start Signal
-  dataChannel.send(JSON.stringify(fileInfo));
-  
-  // 3. Send Chunks with Backpressure (Flow Control)
-  let offset = 0;
-  
-  for (let i = 0; i < totalChunks; i++) {
-    // Check cancellation
-    if (activeTransfers.get(fileId)?.cancelled || cancelledFiles.has(fileId)) {
-      cancelledFiles.add(fileId);
-      // Try to send cancel signal immediately
-      try { dataChannel.send(JSON.stringify({ type: 'file-cancel', fileId })); } catch(e){}
-      return;
-    }
-
-    // --- BACKPRESSURE FIX STARTS HERE ---
-    // If browser buffer is too full (over 16MB), wait until it drains
-    if (dataChannel.bufferedAmount > 16 * 1024 * 1024) { 
-       await new Promise(resolve => {
-         const checkBuffer = () => {
-           if (dataChannel.bufferedAmount < 1 * 1024 * 1024) { // Wait until below 1MB
-              resolve();
-           } else {
-              setTimeout(checkBuffer, 50);
-           }
-         };
-         checkBuffer();
-       });
-    }
-    // --- BACKPRESSURE FIX ENDS HERE ---
+    // ===== FILE SHARING SYSTEM (Clean rebuild) =====
     
-    const chunk = file.slice(offset, offset + chunkSize);
-    const buffer = await chunk.arrayBuffer();
-    
-    try {
-      // Send Metadata then Data
-      dataChannel.send(JSON.stringify({ type: 'chunk-meta', fileId, chunkIndex: i, total: totalChunks }));
-      dataChannel.send(new Uint8Array(buffer));
-    } catch (e) {
-      console.error("Send error", e);
-      break; 
-    }
-    
-    offset += chunkSize;
-    
-    // Update Local UI
-    updateFileProgress(fileId, i + 1, totalChunks);
-    
-    // Tiny delay to keep UI responsive
-    if (i % 50 === 0) await new Promise(r => setTimeout(r, 0));
-  }
-  
-  // 4. Send Complete Signal
-  dataChannel.send(JSON.stringify({ type: 'file-complete', fileId, fileName: file.name }));
-  
-  // 5. Update Local UI to "Done"
-  completeFileTransfer(fileId);
-  activeTransfers.delete(fileId);
-}
-
-    function handleFileStart(fileInfo) {
-      files.set(fileInfo.fileId, { ...fileInfo, chunks: [], receivedSet: new Set() });
-      addFileMsg(fileInfo, false);
-      showNotification(
-        fileInfo.username || 'Friend',
-        `📎 Sending file: ${fileInfo.fileName}`,
-        { type: 'file', fileId: fileInfo.fileId }
-      );
-    }
-
-    function handleFileChunk(uint8) {
-      for (const [fileId, meta] of pendingChunkMeta.entries()) {
-        if (cancelledFiles.has(fileId)) {
-          pendingChunkMeta.delete(fileId);
-          continue;
-        }
-        const file = files.get(fileId);
-        if (!file || file.chunks[meta.index]) continue;
+    async function sendFile(file) {
+      if (!dataChannel || dataChannel.readyState !== 'open') {
+        return alert('Not connected. Please wait for connection.');
+      }
+      
+      if (file.size > 50 * 1024 * 1024) { // 50MB limit
+        return alert('File too large. Maximum size is 50MB.');
+      }
+      
+      const fileId = `f_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const CHUNK_SIZE = 16 * 1024; // 16KB chunks
+      const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+      
+      const metadata = {
+        fileId,
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type || 'application/octet-stream',
+        totalChunks,
+        timestamp: new Date().toISOString()
+      };
+      
+      // Show file in UI immediately
+      addFileMessage(metadata, true);
+      
+      // Send metadata
+      dataChannel.send(JSON.stringify({
+        type: 'file-meta',
+        ...metadata
+      }));
+      
+      // Send chunks
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, file.size);
+        const chunk = file.slice(start, end);
+        const buffer = await chunk.arrayBuffer();
         
-        file.chunks[meta.index] = uint8;
-        file.receivedSet.add(meta.index);
-        updateFileProgress(fileId, file.receivedSet.size, file.totalChunks);
-        pendingChunkMeta.delete(fileId);
-        break;
+        // Wait if buffer is full
+        while (dataChannel.bufferedAmount > 16 * 1024 * 1024) {
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+        
+        dataChannel.send(JSON.stringify({
+          type: 'file-chunk',
+          fileId,
+          index: i,
+          data: Array.from(new Uint8Array(buffer))
+        }));
+        
+        updateFileProgress(fileId, i + 1, totalChunks);
+        
+        // Yield to UI
+        if (i % 20 === 0) await new Promise(r => setTimeout(r, 0));
+      }
+      
+      // Send completion
+      dataChannel.send(JSON.stringify({
+        type: 'file-done',
+        fileId
+      }));
+      
+      markFileSent(fileId);
+    }
+    
+    function handleFileMessage(msg) {
+      if (msg.type === 'file-meta') {
+        pendingFileTransfers.set(msg.fileId, {
+          metadata: msg,
+          chunks: new Array(msg.totalChunks),
+          receivedCount: 0
+        });
+        addFileMessage(msg, false);
+      } 
+      else if (msg.type === 'file-chunk') {
+        const transfer = pendingFileTransfers.get(msg.fileId);
+        if (transfer && !transfer.chunks[msg.index]) {
+          transfer.chunks[msg.index] = new Uint8Array(msg.data);
+          transfer.receivedCount++;
+          updateFileProgress(msg.fileId, transfer.receivedCount, transfer.metadata.totalChunks);
+        }
+      }
+      else if (msg.type === 'file-done') {
+        const transfer = pendingFileTransfers.get(msg.fileId);
+        if (transfer) {
+          const blob = new Blob(transfer.chunks, { type: transfer.metadata.fileType });
+          const url = URL.createObjectURL(blob);
+          markFileReceived(msg.fileId, url, transfer.metadata);
+          
+          showNotification(
+            currentUser.username,
+            `📎 Received ${transfer.metadata.fileName}`,
+            { type: 'file' }
+          );
+        }
       }
     }
-
-function addFileMsg(fileInfo, isOwn) {
+    
+    function addFileMessage(metadata, isOwn) {
       const msgDiv = document.getElementById('messages');
       if (msgDiv.querySelector('.empty')) msgDiv.innerHTML = '';
       
-      const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      const fileSize = formatFileSize(fileInfo.fileSize);
-      const fileIcon = getFileIcon(fileInfo.fileType);
+      const time = new Date(metadata.timestamp).toLocaleTimeString([], { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
       
-      const cancelBtn = isOwn ? `<button class="cancel-btn" id="cancel-${fileInfo.fileId}" onclick="cancelFileTransfer('${fileInfo.fileId}')">Cancel Transfer</button>` : '';
+      const icon = getFileIcon(metadata.fileType);
+      const size = formatFileSize(metadata.fileSize);
       
       const div = document.createElement('div');
       div.className = `message ${isOwn ? 'own' : ''}`;
+      div.id = `msg-${metadata.fileId}`;
       
       div.innerHTML = `
         <div class="message-stack">
-           ${!isOwn ? `<div class="message-username">${esc(fileInfo.username || 'Friend')}</div>` : ''}
-           
-           <div class="message-bubble file-message" id="file-${fileInfo.fileId}">
-              <div class="file-info">
-                <div class="file-icon">${fileIcon}</div>
-                <div class="file-details">
-                  <div class="file-name">${esc(fileInfo.fileName)}</div>
-                  <div class="file-size">${fileSize}</div>
-                </div>
+          ${!isOwn ? `<div class="message-username">${selectedFriend.username}</div>` : ''}
+          <div class="message-bubble file-message" id="file-${metadata.fileId}">
+            <div class="file-info">
+              <div class="file-icon">${icon}</div>
+              <div class="file-details">
+                <div class="file-name">${esc(metadata.fileName)}</div>
+                <div class="file-size">${size}</div>
               </div>
-              
-              <div class="file-progress">
-                <div class="file-progress-bar" id="progress-${fileInfo.fileId}" style="width: 0%"></div>
-              </div>
-              
-              ${cancelBtn}
-           </div>
-
-           <div class="message-time">${time}</div>
+            </div>
+            <div class="file-progress">
+              <div class="file-progress-bar" id="progress-${metadata.fileId}"></div>
+            </div>
+            <div class="file-status" id="status-${metadata.fileId}">
+              ${isOwn ? 'Sending...' : 'Receiving...'}
+            </div>
+          </div>
+          <div class="message-time">${time}</div>
         </div>
       `;
       
       msgDiv.appendChild(div);
       msgDiv.scrollTop = msgDiv.scrollHeight;
     }
-
-    // Update progress bar width; ensures DOM lookup and guards total=0
-    function updateFileProgress(fileId, completed, total) {
-      if (!total) return;
-      const pct = Math.max(0, Math.min(100, Math.round((completed / total) * 100)));
-      const progressBar = document.getElementById(`progress-${fileId}`);
-      if (progressBar) {
-        progressBar.style.width = pct + '%';
+    
+    function updateFileProgress(fileId, current, total) {
+      const bar = document.getElementById(`progress-${fileId}`);
+      const status = document.getElementById(`status-${fileId}`);
+      
+      if (bar) {
+        const percent = Math.round((current / total) * 100);
+        bar.style.width = percent + '%';
+      }
+      
+      if (status) {
+        status.textContent = `${current} / ${total} chunks`;
       }
     }
-
-// 4. UPDATED: Complete File (Show preview/download)
-    function completeFileTransfer(fileId) {
-      const file = files.get(fileId);
-      if (!file) return;
+    
+    function markFileSent(fileId) {
+      const status = document.getElementById(`status-${fileId}`);
+      if (status) {
+        status.textContent = 'Sent ✓';
+        status.style.color = '#10b981';
+      }
+    }
+    
+    function markFileReceived(fileId, url, metadata) {
+      const fileEl = document.getElementById(`file-${fileId}`);
+      if (!fileEl) return;
       
-      const fileElement = document.getElementById(`file-${fileId}`);
-      if (!fileElement) return;
+      const icon = getFileIcon(metadata.fileType);
+      const size = formatFileSize(metadata.fileSize);
       
-      // Force bar to 100% visually before replacing
-      const progressBar = document.getElementById(`progress-${fileId}`);
-      if (progressBar) progressBar.style.width = '100%';
-      
-      const blob = new Blob(file.chunks, { type: file.fileType });
-      const url = URL.createObjectURL(blob);
-      const fileIcon = getFileIcon(file.fileType);
-      const fileSize = formatFileSize(file.fileSize);
-      
-      let previewHtml = '';
-      if (file.fileType.startsWith('image/')) {
-        previewHtml = `<div class="media-preview"><img src="${url}" alt="${esc(file.fileName)}"></div>`;
-      } else if (file.fileType.startsWith('video/')) {
-        previewHtml = `<div class="media-preview"><video src="${url}" controls playsinline muted></video></div>`;
+      let preview = '';
+      if (metadata.fileType.startsWith('image/')) {
+        preview = `<div class="media-preview"><img src="${url}" alt="${esc(metadata.fileName)}"></div>`;
+      } else if (metadata.fileType.startsWith('video/')) {
+        preview = `<div class="media-preview"><video src="${url}" controls></video></div>`;
       }
       
-      // Replace bubble content with finished state
-      fileElement.innerHTML = `
+      fileEl.innerHTML = `
         <div class="file-info">
-          <div class="file-icon">${fileIcon}</div>
+          <div class="file-icon">${icon}</div>
           <div class="file-details">
-            <div class="file-name">${esc(file.fileName)}</div>
-            <div class="file-size">${fileSize}</div>
+            <div class="file-name">${esc(metadata.fileName)}</div>
+            <div class="file-size">${size}</div>
           </div>
         </div>
-        ${previewHtml}
-        <button class="download-btn" onclick="downloadFile('${url}', '${esc(file.fileName)}')">Download</button>
+        ${preview}
+        <button class="download-btn" onclick="downloadFile('${url}', '${esc(metadata.fileName)}')">Download</button>
       `;
+      
+      pendingFileTransfers.delete(fileId);
     }
-
-// 2. UPDATED: Cancel File (Updates bubble content only)
-function cancelFileTransfer(fileId) {
-  // Mark as cancelled immediately
-  cancelledFiles.add(fileId);
-  
-  const transfer = activeTransfers.get(fileId);
-  if (transfer) {
-    transfer.cancelled = true;
-  }
-  
-  // Send network message IMMEDIATELY
-  if (dataChannel && dataChannel.readyState === 'open') {
-    dataChannel.send(JSON.stringify({ type: 'file-cancel', fileId }));
-  }
-  
-  // Update Local UI
-  const fileElement = document.getElementById(`file-${fileId}`);
-  if (fileElement) {
-     fileElement.innerHTML = `
-      <div class="file-info">
-        <div class="file-icon" style="background:rgba(239,68,68,0.1); color:#ef4444;">✕</div>
-        <div class="file-details">
-          <div class="file-name" style="color:#ef4444;">Transfer cancelled</div>
-        </div>
-      </div>
-    `;
-  }
-  
-  // Clean up
-  activeTransfers.delete(fileId);
-  files.delete(fileId);
-}
-
-   // 3. UPDATED: Handle Remote Cancel
-function handleFileCancel(fileId) {
-  cancelledFiles.add(fileId);
-  files.delete(fileId); // Clear memory
-  pendingChunkMeta.delete(fileId); // Clear any pending chunk metadata
-  
-  const fileElement = document.getElementById(`file-${fileId}`);
-  if (fileElement) {
-    // Force UI to show Cancelled
-    fileElement.innerHTML = `
-      <div class="file-info">
-        <div class="file-icon" style="background:rgba(239,68,68,0.1); color:#ef4444;">✕</div>
-        <div class="file-details">
-          <div class="file-name" style="color:#ef4444;">Transfer cancelled</div>
-        </div>
-      </div>
-    `;
-  }
-}
-
+    
     function downloadFile(url, fileName) {
       const a = document.createElement('a');
       a.href = url;
       a.download = fileName;
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
     }
-
+    
     function formatFileSize(bytes) {
-      if (bytes === 0) return '0 Bytes';
+      if (bytes === 0) return '0 B';
       const k = 1024;
-      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+      const sizes = ['B', 'KB', 'MB', 'GB'];
       const i = Math.floor(Math.log(bytes) / Math.log(k));
-      return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+      return (bytes / Math.pow(k, i)).toFixed(1) + ' ' + sizes[i];
     }
-
+    
     function getFileIcon(fileType) {
       if (fileType.startsWith('image/')) return '🖼️';
       if (fileType.startsWith('video/')) return '🎥';
+      if (fileType.startsWith('audio/')) return '🎵';
+      if (fileType.includes('pdf')) return '📄';
+      if (fileType.includes('zip') || fileType.includes('rar')) return '📦';
+      if (fileType.includes('text')) return '📝';
       return '📁';
     }
+    // ===== END FILE SHARING SYSTEM =====
 
     // UI & Logic Updates
     function renderFriends() {
@@ -1241,19 +1198,19 @@ function handleFileCancel(fileId) {
     document.getElementById('msgInput').addEventListener('keypress', (e) => {
       if (e.key === 'Enter') sendMsg();
     });
-
-    document.getElementById('fileBtn').addEventListener('click', () => {
+document.getElementById('fileBtn').addEventListener('click', () => {
       document.getElementById('fileInput').click();
     });
 
     document.getElementById('fileInput').addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (file) {
-        shareFile(file);
-        e.target.value = ''; 
+        sendFile(file);
+        e.target.value = '';
       }
     });
 
+    
     function saveMsg(friendId, msg) {
       const key = `msgs_${currentUser.userId}_${friendId}`;
       const msgs = JSON.parse(localStorage.getItem(key) || '[]');
