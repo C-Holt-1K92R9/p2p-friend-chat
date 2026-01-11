@@ -548,8 +548,9 @@
   </div>
 
   <script>
-    // Server configuration - socket will be initialized after server URL is provided
-    let SERVER_URL = localStorage.getItem('serverUrl') || '';
+    // Server configuration - Default server URL (Railway)
+    const DEFAULT_SERVER_URL = 'https://p2p-friend-chat-production.up.railway.app';
+    let SERVER_URL = localStorage.getItem('serverUrl') || DEFAULT_SERVER_URL;
     let socket = null;
     let currentUser = null;
     let friends = new Map();
@@ -560,9 +561,9 @@
     const activeTransfers = new Map(); 
     const cancelledFiles = new Set(); 
 
-    // Initialize on page load
+    // Initialize on page load - auto-connect to default server
     function init() {
-      initServerConfig();
+      connectToServer(SERVER_URL);
     }
 
     // Server configuration functions
@@ -587,16 +588,14 @@
     }
 
     function connectToServer(url) {
-      const serverUrl = url || document.getElementById('serverUrl').value.trim();
+      const serverUrl = url || document.getElementById('serverUrl').value.trim() || DEFAULT_SERVER_URL;
       if (!serverUrl) return alert('Please enter a server URL');
       
       // Clean URL (remove trailing slash)
       const cleanUrl = serverUrl.replace(/\/$/, '');
       
-      const statusEl = document.getElementById('serverStatus');
-      statusEl.style.display = 'block';
-      statusEl.className = 'server-status testing';
-      statusEl.textContent = 'Testing connection...';
+      // Hide server config immediately for auto-connect
+      document.getElementById('serverConfig').classList.add('hidden');
       
       // Disconnect existing socket if any
       if (socket) {
@@ -613,21 +612,20 @@
       socket.on('connect', () => {
         SERVER_URL = cleanUrl;
         localStorage.setItem('serverUrl', cleanUrl);
-        statusEl.className = 'server-status success';
-        statusEl.textContent = 'Connected successfully!';
         document.getElementById('status').textContent = 'Connected';
         
         // Setup all socket event listeners
         setupSocketListeners();
         
-        // Hide server config, show registration or main app
-        setTimeout(() => {
-          document.getElementById('serverConfig').classList.add('hidden');
-          checkUserSession();
-        }, 500);
+        // Check user session immediately
+        checkUserSession();
       });
       
       socket.on('connect_error', (err) => {
+        // Show server config on connection failure
+        document.getElementById('serverConfig').classList.remove('hidden');
+        const statusEl = document.getElementById('serverStatus');
+        statusEl.style.display = 'block';
         statusEl.className = 'server-status error';
         statusEl.textContent = 'Connection failed: ' + (err.message || 'Server unreachable');
       });
