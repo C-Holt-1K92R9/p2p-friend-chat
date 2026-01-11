@@ -1,15 +1,11 @@
 {
   "version": 2,
-  "builds": [
+  "buildCommand": null,
+  "outputDirectory": "public",
+  "rewrites": [
     {
-      "src": "public/**",
-      "use": "@vercel/static"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/public/$1"
+      "source": "/(.*)",
+      "destination": "/$1"
     }
   ],
   "headers": [
