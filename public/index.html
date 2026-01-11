@@ -96,6 +96,46 @@
     .btn-secondary { background: #e2e8f0; color: #2d3748; }
     .countdown { font-size: 12px; color: #e53e3e; margin-top: 10px; }
 
+    /* Server Config Overlay */
+    .server-config { 
+      position: fixed; inset: 0; 
+      background: linear-gradient(135deg, #1a1a2e, #16213e); 
+      display: flex; align-items: center; justify-content: center; 
+      z-index: 10001; 
+    }
+    .server-config.hidden { display: none; }
+    
+    .server-card { 
+      background: white; padding: 40px; border-radius: 20px; 
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+      max-width: 450px; width: 90%; text-align: center; 
+    }
+    .server-card h1 { font-size: 28px; margin-bottom: 10px; color: #1a1a2e; }
+    .server-card p { color: #6b7280; margin-bottom: 20px; font-size: 14px; }
+    .server-card input { 
+      width: 100%; padding: 14px; border: 2px solid #e5e7eb; border-radius: 12px; 
+      font-size: 14px; margin-bottom: 15px; outline: none; transition: border 0.2s;
+    }
+    .server-card input:focus { border-color: #667eea; }
+    .server-card button { 
+      width: 100%; padding: 14px; background: #1a1a2e; color: white; border: none;
+      border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+    }
+    .server-card button:hover { background: #16213e; transform: translateY(-2px); }
+    .server-card .saved-server {
+      background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px;
+      padding: 10px; margin-bottom: 15px; font-size: 13px; color: #166534;
+    }
+    .server-card .change-link {
+      color: #667eea; cursor: pointer; font-size: 13px; margin-top: 10px; display: inline-block;
+    }
+    .server-card .change-link:hover { text-decoration: underline; }
+    .server-status { 
+      font-size: 12px; margin-top: 10px; padding: 8px; border-radius: 6px;
+    }
+    .server-status.success { background: #d1fae5; color: #065f46; }
+    .server-status.error { background: #fee2e2; color: #991b1b; }
+    .server-status.testing { background: #fef3c7; color: #92400e; }
 
     /* --- 3. SIDEBAR --- */
     .sidebar {
@@ -427,7 +467,22 @@
 <body>
   <button class="hamburger-btn" id="hamburgerBtn" onclick="toggleSidebar()">☰</button>
   
-  <div class="registration" id="regScreen">
+  <!-- Server Configuration Overlay -->
+  <div class="server-config" id="serverConfig">
+    <div class="server-card">
+      <h1>🔗 Server Setup</h1>
+      <p>Enter your backend server URL (Railway/Render link)</p>
+      <div id="savedServerDisplay" class="saved-server" style="display: none;">
+        Connected to: <strong id="savedServerUrl"></strong>
+      </div>
+      <input type="url" id="serverUrl" placeholder="https://your-server.railway.app" />
+      <button onclick="connectToServer()">Connect</button>
+      <div id="serverStatus" class="server-status" style="display: none;"></div>
+      <span id="changeServerLink" class="change-link" style="display: none;" onclick="showServerInput()">Change server</span>
+    </div>
+  </div>
+
+  <div class="registration hidden" id="regScreen">
     <div class="reg-card">
       <h1>👋 Welcome</h1>
       <p>Enter your name to start</p>
@@ -493,7 +548,9 @@
   </div>
 
   <script>
-    const socket = io(window.location.origin, { transports: ['websocket'], reconnection: true });
+    // Server configuration - socket will be initialized after server URL is provided
+    let SERVER_URL = localStorage.getItem('serverUrl') || '';
+    let socket = null;
     let currentUser = null;
     let friends = new Map();
     let selectedFriend = null;
@@ -503,115 +560,192 @@
     const activeTransfers = new Map(); 
     const cancelledFiles = new Set(); 
 
+    // Initialize on page load
     function init() {
+      initServerConfig();
+    }
+
+    // Server configuration functions
+    function initServerConfig() {
+      const savedServer = localStorage.getItem('serverUrl');
+      if (savedServer) {
+        document.getElementById('savedServerUrl').textContent = savedServer;
+        document.getElementById('savedServerDisplay').style.display = 'block';
+        document.getElementById('serverUrl').style.display = 'none';
+        document.getElementById('changeServerLink').style.display = 'inline-block';
+        // Auto-connect to saved server
+        connectToServer(savedServer);
+      }
+    }
+
+    function showServerInput() {
+      document.getElementById('savedServerDisplay').style.display = 'none';
+      document.getElementById('serverUrl').style.display = 'block';
+      document.getElementById('serverUrl').value = localStorage.getItem('serverUrl') || '';
+      document.getElementById('changeServerLink').style.display = 'none';
+      document.getElementById('serverStatus').style.display = 'none';
+    }
+
+    function connectToServer(url) {
+      const serverUrl = url || document.getElementById('serverUrl').value.trim();
+      if (!serverUrl) return alert('Please enter a server URL');
+      
+      // Clean URL (remove trailing slash)
+      const cleanUrl = serverUrl.replace(/\/$/, '');
+      
+      const statusEl = document.getElementById('serverStatus');
+      statusEl.style.display = 'block';
+      statusEl.className = 'server-status testing';
+      statusEl.textContent = 'Testing connection...';
+      
+      // Disconnect existing socket if any
+      if (socket) {
+        socket.disconnect();
+      }
+      
+      // Try to connect
+      socket = io(cleanUrl, { 
+        transports: ['websocket', 'polling'], 
+        reconnection: true,
+        timeout: 10000
+      });
+      
+      socket.on('connect', () => {
+        SERVER_URL = cleanUrl;
+        localStorage.setItem('serverUrl', cleanUrl);
+        statusEl.className = 'server-status success';
+        statusEl.textContent = 'Connected successfully!';
+        document.getElementById('status').textContent = 'Connected';
+        
+        // Setup all socket event listeners
+        setupSocketListeners();
+        
+        // Hide server config, show registration or main app
+        setTimeout(() => {
+          document.getElementById('serverConfig').classList.add('hidden');
+          checkUserSession();
+        }, 500);
+      });
+      
+      socket.on('connect_error', (err) => {
+        statusEl.className = 'server-status error';
+        statusEl.textContent = 'Connection failed: ' + (err.message || 'Server unreachable');
+      });
+    }
+
+    function checkUserSession() {
       const saved = localStorage.getItem('chatUser');
       if (saved) {
         const user = JSON.parse(saved);
         currentUser = user;
         socket.emit('login', user.userId);
-        document.getElementById('regScreen').classList.add('hidden');
+      } else {
+        document.getElementById('regScreen').classList.remove('hidden');
       }
+    }
+
+    function setupSocketListeners() {
+      socket.on('disconnect', () => document.getElementById('status').textContent = 'Disconnected');
+      
+      socket.on('registered', (data) => {
+        currentUser = data;
+        localStorage.setItem('chatUser', JSON.stringify({ userId: data.userId, username: data.username }));
+        document.getElementById('regScreen').classList.add('hidden');
+        document.getElementById('userName').textContent = data.username;
+        data.friends.forEach(f => friends.set(f.userId, f));
+        renderFriends();
+      });
+      
+      socket.on('logged-in', (data) => {
+        currentUser = data;
+        document.getElementById('regScreen').classList.add('hidden');
+        document.getElementById('userName').textContent = data.username;
+        data.friends.forEach(f => friends.set(f.userId, f));
+        renderFriends();
+      });
+      
+      socket.on('login-failed', () => {
+        localStorage.removeItem('chatUser');
+        document.getElementById('regScreen').classList.remove('hidden');
+      });
+    
+      socket.on('friend-code-generated', (data) => {
+        document.getElementById('codeDisplay').textContent = data.code;
+        document.getElementById('genSection').style.display = 'none';
+        document.getElementById('codeSection').style.display = 'block';
+        startCountdown(new Date(data.expiresAt));
+      });
+      
+      socket.on('friend-code-error', (data) => alert(data.error));
+      
+      socket.on('friend-added', (f) => {
+        friends.set(f.userId, f);
+        renderFriends();
+        closeAddFriend();
+        alert(f.username + ' added!');
+      });
+      
+      socket.on('friend-online', (data) => {
+        const f = friends.get(data.userId);
+        if (f) { f.online = true; renderFriends(); }
+      });
+      
+      socket.on('friend-offline', (data) => {
+        const f = friends.get(data.userId);
+        if (f) { f.online = false; renderFriends(); }
+      });
+      
+      socket.on('unfriended', (data) => {
+        friends.delete(data.userId);
+        // If currently chatting with this person, reset UI
+        if (selectedFriend && selectedFriend.userId === data.userId) {
+          selectedFriend = null;
+          document.getElementById('headerUnfriendBtn').style.display = 'none';
+          document.getElementById('chatTitle').textContent = 'Select a friend';
+          document.getElementById('msgInput').disabled = true;
+          document.getElementById('sendBtn').disabled = true;
+          document.getElementById('messages').innerHTML = '<div class="empty">Select a friend to chat</div>';
+        }
+        renderFriends();
+        alert(data.username + ' removed from friends');
+      });
+      
+      socket.on('unfriend-error', (data) => alert(data.error));
+
+      // P2P Logic
+      socket.on('p2p-begin', async ({ role, peerId, friendUserId }) => {
+        pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+        pc.ondatachannel = (e) => { dataChannel = e.channel; setupDataChannel(friendUserId); };
+        
+        if (role === 'initiator') {
+          dataChannel = pc.createDataChannel('chat');
+          setupDataChannel(friendUserId);
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          setTimeout(() => socket.emit('webrtc-offer', { to: peerId, sdp: pc.localDescription }), 1000);
+        }
+      });
+      
+      socket.on('webrtc-offer', async ({ from, sdp }) => {
+        if (!pc) return;
+        await pc.setRemoteDescription(sdp);
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        setTimeout(() => socket.emit('webrtc-answer', { to: from, sdp: pc.localDescription }), 1000);
+      });
+      
+      socket.on('webrtc-answer', async ({ sdp }) => {
+        if (!pc) return;
+        await pc.setRemoteDescription(sdp);
+      });
     }
 
     function register() {
       const name = document.getElementById('regName').value.trim();
       if (!name) return alert('Enter your name');
+      if (!socket || !socket.connected) return alert('Not connected to server');
       socket.emit('register', name);
     }
-
-    socket.on('connect', () => document.getElementById('status').textContent = 'Connected');
-    socket.on('disconnect', () => document.getElementById('status').textContent = 'Disconnected');
-    
-    socket.on('registered', (data) => {
-      currentUser = data;
-      localStorage.setItem('chatUser', JSON.stringify({ userId: data.userId, username: data.username }));
-      document.getElementById('regScreen').classList.add('hidden');
-      document.getElementById('userName').textContent = data.username;
-      data.friends.forEach(f => friends.set(f.userId, f));
-      renderFriends();
-    });
-    
-    socket.on('logged-in', (data) => {
-      currentUser = data;
-      document.getElementById('userName').textContent = data.username;
-      data.friends.forEach(f => friends.set(f.userId, f));
-      renderFriends();
-    });
-    
-    socket.on('login-failed', () => {
-      localStorage.removeItem('chatUser');
-      document.getElementById('regScreen').classList.remove('hidden');
-    });
-    
-    socket.on('friend-code-generated', (data) => {
-      document.getElementById('codeDisplay').textContent = data.code;
-      document.getElementById('genSection').style.display = 'none';
-      document.getElementById('codeSection').style.display = 'block';
-      startCountdown(new Date(data.expiresAt));
-    });
-    
-    socket.on('friend-code-error', (data) => alert(data.error));
-    
-    socket.on('friend-added', (f) => {
-      friends.set(f.userId, f);
-      renderFriends();
-      closeAddFriend();
-      alert(f.username + ' added!');
-    });
-    
-    socket.on('friend-online', (data) => {
-      const f = friends.get(data.userId);
-      if (f) { f.online = true; renderFriends(); }
-    });
-    
-    socket.on('friend-offline', (data) => {
-      const f = friends.get(data.userId);
-      if (f) { f.online = false; renderFriends(); }
-    });
-    
-    socket.on('unfriended', (data) => {
-      friends.delete(data.userId);
-      // If currently chatting with this person, reset UI
-      if (selectedFriend && selectedFriend.userId === data.userId) {
-        selectedFriend = null;
-        document.getElementById('headerUnfriendBtn').style.display = 'none';
-        document.getElementById('chatTitle').textContent = 'Select a friend';
-        document.getElementById('msgInput').disabled = true;
-        document.getElementById('sendBtn').disabled = true;
-        document.getElementById('messages').innerHTML = '<div class="empty">Select a friend to chat</div>';
-      }
-      renderFriends();
-      alert(data.username + ' removed from friends');
-    });
-    
-    socket.on('unfriend-error', (data) => alert(data.error));
-
-    // P2P Logic
-    socket.on('p2p-begin', async ({ role, peerId, friendUserId }) => {
-      pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
-      pc.ondatachannel = (e) => { dataChannel = e.channel; setupDataChannel(friendUserId); };
-      
-      if (role === 'initiator') {
-        dataChannel = pc.createDataChannel('chat');
-        setupDataChannel(friendUserId);
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        setTimeout(() => socket.emit('webrtc-offer', { to: peerId, sdp: pc.localDescription }), 1000);
-      }
-    });
-    
-    socket.on('webrtc-offer', async ({ from, sdp }) => {
-      if (!pc) return;
-      await pc.setRemoteDescription(sdp);
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      setTimeout(() => socket.emit('webrtc-answer', { to: from, sdp: pc.localDescription }), 1000);
-    });
-    
-    socket.on('webrtc-answer', async ({ sdp }) => {
-      if (!pc) return;
-      await pc.setRemoteDescription(sdp);
-    });
 
 function setupDataChannel(friendUserId) {
       if (!dataChannel) return;

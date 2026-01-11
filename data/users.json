@@ -2,7 +2,7 @@
   {
     "userId": "user_1768113028422_ulybrnwub",
     "username": "Jk",
-    "socketId": "wksIrutFaHKe1hJzAABB",
+    "socketId": null,
     "address": "192.168.0.203",
     "registeredAt": "2026-01-11T06:30:28.422Z"
   },
@@ -47,5 +47,12 @@
     "socketId": "Ddzn3Ag2reabOlqoAAAD",
     "address": "192.168.0.101",
     "registeredAt": "2026-01-11T11:52:41.616Z"
+  },
+  {
+    "userId": "user_1768135335582_wtwhnq91i",
+    "username": "Kaoushik Brave",
+    "socketId": "LIqK9Shb2IvRn6knAAAJ",
+    "address": "127.0.0.1",
+    "registeredAt": "2026-01-11T12:42:15.582Z"
   }
 ]
