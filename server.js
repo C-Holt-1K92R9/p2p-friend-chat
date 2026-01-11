@@ -11,9 +11,7 @@ const io = socketIO(server, {
     origin: "*",
     methods: ["GET", "POST"]
   },
-  // Limit per-message size to a reasonable value for binary chunks
   maxHttpBufferSize: 50 * 1024 * 1024, // 50 MB
-  // Disable per-message deflate to avoid CPU overhead for binary payloads
   perMessageDeflate: false
 });
 
@@ -22,270 +20,322 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ limit: '100mb', extended: true }));
 
-// Store connected users and message history
-const users = new Map();
-let messageHistory = []; // Store all messages
-const MAX_MESSAGES = 500; // Keep last 500 messages
-const CHUNK_SIZE = 256 * 1024; // Default 256KB chunks (client controls actual size)
+// NEW SYSTEM: Store registered users, active connections, friend codes, and friend pairs
+const registeredUsers = new Map(); // userId -> { userId, username, socketId (when online), address, registeredAt }
+const friendCodes = new Map(); // code -> { userId, username, createdAt, expiresAt }
+const friendPairs = new Map(); // userId -> Set of friend userIds
+const activeSockets = new Map(); // socketId -> userId
 
-// Simple disk persistence for message history
+// Simple disk persistence
 const DATA_DIR = path.join(__dirname, 'data');
-const MESSAGES_FILE = path.join(DATA_DIR, 'messages.json');
-const CLIENTS_CSV = path.join(DATA_DIR, 'clients.csv');
+const USERS_FILE = path.join(DATA_DIR, 'users.json');
+const FRIENDS_FILE = path.join(DATA_DIR, 'friends.json');
+const PENDING_CODES_CSV = path.join(DATA_DIR, 'pending_codes.csv');
 const PAIRS_CSV = path.join(DATA_DIR, 'pairs.csv');
+
 
 function ensureDataDir() {
   try {
     fs.mkdirSync(DATA_DIR, { recursive: true });
     // Ensure CSV files exist with headers
-    if (!fs.existsSync(CLIENTS_CSV)) {
-      fs.writeFileSync(CLIENTS_CSV, 'timestamp,id,username,ip,event\n');
+    if (!fs.existsSync(PENDING_CODES_CSV)) {
+      fs.writeFileSync(PENDING_CODES_CSV, 'timestamp,code,userId,username,expiresAt\n');
     }
     if (!fs.existsSync(PAIRS_CSV)) {
-      fs.writeFileSync(PAIRS_CSV, 'timestamp,id1,username1,ip1,id2,username2,ip2\n');
+      fs.writeFileSync(PAIRS_CSV, 'timestamp,userId1,username1,userId2,username2\n');
     }
   } catch (err) {
     console.error('Failed to create data directory:', err);
   }
 }
 
-function loadMessages() {
+function loadUsers() {
   try {
-    if (fs.existsSync(MESSAGES_FILE)) {
-      const raw = fs.readFileSync(MESSAGES_FILE, 'utf8');
+    if (fs.existsSync(USERS_FILE)) {
+      const raw = fs.readFileSync(USERS_FILE, 'utf8');
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed.messages)) {
-        // keep only last MAX_MESSAGES
-        messageHistory = parsed.messages.slice(-MAX_MESSAGES);
-        console.log(`Loaded ${messageHistory.length} messages from disk`);
+      if (Array.isArray(parsed)) {
+        parsed.forEach(user => {
+          registeredUsers.set(user.userId, user);
+        });
+        console.log(`Loaded ${registeredUsers.size} registered users`);
       }
     }
   } catch (err) {
-    console.error('Failed to load messages:', err);
+    console.error('Failed to load users:', err);
   }
 }
 
-let saveTimer = null;
-function scheduleSave() {
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(saveMessages, 300);
-}
-
-function saveMessages() {
+function saveUsers() {
   try {
-    const payload = JSON.stringify({ messages: messageHistory.slice(-MAX_MESSAGES) }, null, 2);
-    fs.writeFile(MESSAGES_FILE, payload, (err) => {
-      if (err) {
-        console.error('Failed to save messages:', err);
-      }
-    });
+    const users = Array.from(registeredUsers.values());
+    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
   } catch (err) {
-    console.error('Error preparing messages for save:', err);
+    console.error('Failed to save users:', err);
   }
+}
+
+function loadFriends() {
+  try {
+    if (fs.existsSync(FRIENDS_FILE)) {
+      const raw = fs.readFileSync(FRIENDS_FILE, 'utf8');
+      const parsed = JSON.parse(raw);
+      if (typeof parsed === 'object') {
+        Object.keys(parsed).forEach(userId => {
+          friendPairs.set(userId, new Set(parsed[userId]));
+        });
+        console.log(`Loaded friend connections for ${friendPairs.size} users`);
+      }
+    }
+  } catch (err) {
+    console.error('Failed to load friends:', err);
+  }
+}
+
+function saveFriends() {
+  try {
+    const obj = {};
+    friendPairs.forEach((friends, userId) => {
+      obj[userId] = Array.from(friends);
+    });
+    fs.writeFileSync(FRIENDS_FILE, JSON.stringify(obj, null, 2));
+  } catch (err) {
+    console.error('Failed to save friends:', err);
+  }
+}
+
+function generateFriendCode() {
+  // Generate a 6-digit code
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+function logPendingCode(code, userId, username, expiresAt) {
+  const line = `${new Date().toISOString()},${code},${userId},${(username||'').replace(/,/g,'_')},${expiresAt}\n`;
+  fs.appendFile(PENDING_CODES_CSV, line, () => {});
+}
+
+function logFriendPair(user1, user2) {
+  const line = `${new Date().toISOString()},${user1.userId},${(user1.username||'').replace(/,/g,'_')},${user2.userId},${(user2.username||'').replace(/,/g,'_')}\n`;
+  fs.appendFile(PAIRS_CSV, line, () => {});
 }
 
 // Initialize persistence
 ensureDataDir();
-loadMessages();
-
-// Simple pairing state (supports exactly two peers)
-let currentPair = null; // { aId, bId }
-
-function logClientEvent(id, username, ip, event) {
-  const line = `${new Date().toISOString()},${id},${(username||'').replace(/,/g,'_')},${ip},${event}\n`;
-  fs.appendFile(CLIENTS_CSV, line, () => {});
-}
-
-function logPair(a, b) {
-  const line = `${new Date().toISOString()},${a.id},${(a.username||'').replace(/,/g,'_')},${a.ip},${b.id},${(b.username||'').replace(/,/g,'_')},${b.ip}\n`;
-  fs.appendFile(PAIRS_CSV, line, () => {});
-}
-
-function tryEstablishPair() {
-  if (currentPair) return;
-  if (users.size === 2) {
-    const ids = Array.from(users.keys());
-    const a = users.get(ids[0]);
-    const b = users.get(ids[1]);
-    if (a && b) {
-      currentPair = { aId: a.id, bId: b.id };
-      logPair(a, b);
-      // Tell clients to begin P2P handshake; first user is initiator
-      io.to(a.id).emit('p2p-begin', { role: 'initiator', peerId: b.id, peerUsername: b.username });
-      io.to(b.id).emit('p2p-begin', { role: 'receiver', peerId: a.id, peerUsername: a.username });
-    }
-  }
-}
+loadUsers();
+loadFriends();
 
 io.on('connection', (socket) => {
-  console.log(`User connected: ${socket.id}`);
+  console.log(`Socket connected: ${socket.id}`);
 
-  // Handle user joining
-  socket.on('join', (username) => {
-    const ip = (socket.handshake && (socket.handshake.headers['x-forwarded-for'] || socket.handshake.address)) || '';
-    const ipAddr = Array.isArray(ip) ? ip[0] : (typeof ip === 'string' ? ip.split(',')[0].trim() : String(ip));
-    users.set(socket.id, { id: socket.id, username, ip: ipAddr, connectedAt: new Date() });
-    logClientEvent(socket.id, username, ipAddr, 'join');
+  // Handle user registration
+  socket.on('register', (username) => {
+    const userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const user = {
+      userId,
+      username: username || 'Anonymous',
+      socketId: socket.id,
+      address: socket.handshake.address,
+      registeredAt: new Date()
+    };
     
-    // Send message history to the newly joined user
-    socket.emit('message-history', messageHistory);
+    registeredUsers.set(userId, user);
+    activeSockets.set(socket.id, userId);
+    saveUsers();
     
-    // Notify all users
-    io.emit('users-updated', Array.from(users.values()));
-    console.log(`User ${username} joined. Total users: ${users.size}`);
-    tryEstablishPair();
+    console.log(`User registered: ${username} (${userId})`);
+    
+    // Send back user info and their friends list
+    const friends = friendPairs.get(userId) || new Set();
+    const friendsList = Array.from(friends).map(fId => {
+      const friend = registeredUsers.get(fId);
+      return friend ? {
+        userId: friend.userId,
+        username: friend.username,
+        online: !!friend.socketId
+      } : null;
+    }).filter(f => f);
+    
+    socket.emit('registered', { userId, username, friends: friendsList });
   });
 
-  // Handle text messages
-  socket.on('message', (data) => {
-    const user = users.get(socket.id);
+  // Handle login (existing user reconnecting)
+  socket.on('login', (userId) => {
+    const user = registeredUsers.get(userId);
     if (user) {
-      const message = {
-        id: Math.random().toString(36).substr(2, 9),
-        username: user.username,
-        text: data.text,
-        timestamp: new Date(),
-        userId: socket.id
-      };
+      user.socketId = socket.id;
+      user.address = socket.handshake.address;
+      activeSockets.set(socket.id, userId);
+      console.log(`User logged in: ${user.username} (${userId})`);
       
-      // Store in message history
-      messageHistory.push(message);
+      // Send back user info and friends list with online status
+      const friends = friendPairs.get(userId) || new Set();
+      const friendsList = Array.from(friends).map(fId => {
+        const friend = registeredUsers.get(fId);
+        return friend ? {
+          userId: friend.userId,
+          username: friend.username,
+          online: !!friend.socketId
+        } : null;
+      }).filter(f => f);
       
-      // Keep only the last MAX_MESSAGES
-      if (messageHistory.length > MAX_MESSAGES) {
-        messageHistory.shift();
-      }
-      // Persist to disk (debounced)
-      scheduleSave();
+      socket.emit('logged-in', { userId, username: user.username, friends: friendsList });
       
-      io.emit('message', message);
-      console.log(`Message from ${user.username}: ${data.text}`);
-    }
-  });
-  
-  // Handle private messages
-  socket.on('private-message', (data) => {
-    const user = users.get(socket.id);
-    if (user && data.to) {
-      const message = {
-        id: Math.random().toString(36).substr(2, 9),
-        username: user.username,
-        text: data.text,
-        timestamp: new Date(),
-        userId: socket.id,
-        from: socket.id,
-        to: data.to,
-        isPrivate: true
-      };
-      
-      // Store in message history
-      messageHistory.push(message);
-      
-      // Keep only the last MAX_MESSAGES
-      if (messageHistory.length > MAX_MESSAGES) {
-        messageHistory.shift();
-      }
-      // Persist to disk (debounced)
-      scheduleSave();
-      
-      // Send to recipient
-      io.to(data.to).emit('private-message', message);
-      
-      // Echo back to sender
-      socket.emit('private-message', message);
-      
-      console.log(`Private message from ${user.username} to ${data.to}: ${data.text}`);
-    }
-  });
-
-  // Handle file transfer start
-  socket.on('file-start', (fileInfo) => {
-    const user = users.get(socket.id);
-    if (user) {
-      io.emit('file-start', {
-        fileId: fileInfo.fileId,
-        fileName: fileInfo.fileName,
-        fileSize: fileInfo.fileSize,
-        fileType: fileInfo.fileType,
-        username: user.username,
-        userId: socket.id,
-        totalChunks: fileInfo.totalChunks
+      // Notify friends that this user is now online
+      friends.forEach(friendId => {
+        const friend = registeredUsers.get(friendId);
+        if (friend && friend.socketId) {
+          io.to(friend.socketId).emit('friend-online', { userId, username: user.username });
+        }
       });
-      console.log(`File transfer started: ${fileInfo.fileName} (${fileInfo.fileSize} bytes, ${fileInfo.totalChunks} chunks)`);
+    } else {
+      socket.emit('login-failed', { error: 'User not found' });
     }
   });
 
-  // Handle file chunks (binary-friendly, no compression)
-  socket.on('file-chunk', (data) => {
-    // Broadcast without compression to maximize throughput
-    io.compress(false).emit('file-chunk', {
-      fileId: data.fileId,
-      chunkIndex: data.chunkIndex,
-      chunk: data.chunk,
-      total: data.total
-    });
-  });
-
-  // Handle file transfer complete
-  socket.on('file-complete', (fileInfo) => {
-    io.emit('file-complete', {
-      fileId: fileInfo.fileId,
-      fileName: fileInfo.fileName
-    });
-    console.log(`File transfer completed: ${fileInfo.fileName}`);
-  });
-
-  // Handle file transfer error
-  socket.on('file-error', (fileInfo) => {
-    io.emit('file-error', {
-      fileId: fileInfo.fileId,
-      error: fileInfo.error
-    });
-  });
-
-  // Handle file transfer cancellation
-  socket.on('file-cancel', (data) => {
-    io.emit('file-cancel', {
-      fileId: data.fileId
-    });
-    console.log(`File transfer cancelled: ${data.fileId}`);
-  });
-
-  // Handle disconnect
-  socket.on('disconnect', () => {
-    const user = users.get(socket.id);
-    if (user) {
-      users.delete(socket.id);
-      logClientEvent(socket.id, user.username, user.ip || '', 'disconnect');
-      // Reset pair if one member leaves
-      if (currentPair && (currentPair.aId === socket.id || currentPair.bId === socket.id)) {
-        currentPair = null;
-      }
-      io.emit('users-updated', Array.from(users.values()));
-      console.log(`User ${user.username} disconnected. Total users: ${users.size}`);
-    }
-  });
-
-  // Handle errors
-  socket.on('error', (error) => {
-    console.error(`Socket error for ${socket.id}:`, error);
-  });
-
-  // Handle P2P connection request
-  socket.on('request-p2p', ({ peerId }) => {
-    console.log(`P2P request from ${socket.id} to ${peerId}`);
-    const requester = users.get(socket.id);
-    const target = users.get(peerId);
+  // Handle friend code generation
+  socket.on('generate-friend-code', () => {
+    const userId = activeSockets.get(socket.id);
+    const user = registeredUsers.get(userId);
     
-    if (requester && target) {
-      // Notify both users to begin P2P
-      socket.emit('p2p-begin', { role: 'initiator', peerId });
-      io.to(peerId).emit('p2p-begin', { role: 'receiver', peerId: socket.id });
-      console.log(`Initiated P2P between ${requester.username} and ${target.username}`);
+    if (!user) {
+      socket.emit('friend-code-error', { error: 'User not found' });
+      return;
     }
+    
+    const code = generateFriendCode();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+    
+    friendCodes.set(code, {
+      userId: user.userId,
+      username: user.username,
+      createdAt: new Date(),
+      expiresAt
+    });
+    
+    logPendingCode(code, user.userId, user.username, expiresAt.toISOString());
+    
+    // Auto-cleanup expired code
+    setTimeout(() => {
+      friendCodes.delete(code);
+    }, 5 * 60 * 1000);
+    
+    socket.emit('friend-code-generated', { code, expiresAt });
+    console.log(`Friend code generated: ${code} for ${user.username}`);
   });
 
-  // WebRTC signaling (non-trickle: full SDP exchange only)
+  // Handle friend code entry (pairing)
+  socket.on('enter-friend-code', (code) => {
+    const userId = activeSockets.get(socket.id);
+    const user = registeredUsers.get(userId);
+    
+    if (!user) {
+      socket.emit('friend-code-error', { error: 'User not found' });
+      return;
+    }
+    
+    const codeData = friendCodes.get(code);
+    
+    if (!codeData) {
+      socket.emit('friend-code-error', { error: 'Invalid or expired code' });
+      return;
+    }
+    
+    if (codeData.expiresAt < new Date()) {
+      friendCodes.delete(code);
+      socket.emit('friend-code-error', { error: 'Code expired' });
+      return;
+    }
+    
+    if (codeData.userId === userId) {
+      socket.emit('friend-code-error', { error: 'Cannot add yourself' });
+      return;
+    }
+    
+    // Check if already friends
+    const userFriends = friendPairs.get(userId) || new Set();
+    if (userFriends.has(codeData.userId)) {
+      socket.emit('friend-code-error', { error: 'Already friends' });
+      return;
+    }
+    
+    // Add friend connection (bidirectional)
+    if (!friendPairs.has(userId)) {
+      friendPairs.set(userId, new Set());
+    }
+    if (!friendPairs.has(codeData.userId)) {
+      friendPairs.set(codeData.userId, new Set());
+    }
+    
+    friendPairs.get(userId).add(codeData.userId);
+    friendPairs.get(codeData.userId).add(userId);
+    
+    saveFriends();
+    logFriendPair(user, { userId: codeData.userId, username: codeData.username });
+    
+    // Remove the used code
+    friendCodes.delete(code);
+    
+    // Notify both users
+    const friend = registeredUsers.get(codeData.userId);
+    socket.emit('friend-added', { 
+      userId: friend.userId, 
+      username: friend.username,
+      online: !!friend.socketId
+    });
+    
+    if (friend.socketId) {
+      io.to(friend.socketId).emit('friend-added', { 
+        userId: user.userId, 
+        username: user.username,
+        online: true
+      });
+    }
+    
+    console.log(`Friend pair created: ${user.username} <-> ${codeData.username}`);
+  });
+
+  // Handle request for friend's P2P address
+  socket.on('request-friend-address', (friendUserId) => {
+    const userId = activeSockets.get(socket.id);
+    const user = registeredUsers.get(userId);
+    
+    if (!user) {
+      socket.emit('friend-address-error', { error: 'User not found' });
+      return;
+    }
+    
+    // Verify they are friends
+    const userFriends = friendPairs.get(userId) || new Set();
+    if (!userFriends.has(friendUserId)) {
+      socket.emit('friend-address-error', { error: 'Not friends' });
+      return;
+    }
+    
+    const friend = registeredUsers.get(friendUserId);
+    if (!friend || !friend.socketId) {
+      socket.emit('friend-address-error', { error: 'Friend is offline' });
+      return;
+    }
+    
+    // Initiate P2P connection between friends
+    socket.emit('p2p-begin', { 
+      role: 'initiator', 
+      peerId: friend.socketId,
+      friendUserId: friend.userId,
+      friendUsername: friend.username
+    });
+    
+    io.to(friend.socketId).emit('p2p-begin', { 
+      role: 'receiver', 
+      peerId: socket.id,
+      friendUserId: user.userId,
+      friendUsername: user.username
+    });
+    
+    console.log(`P2P initiated between ${user.username} and ${friend.username}`);
+  });
+
+  // WebRTC signaling
   socket.on('webrtc-offer', (payload) => {
     const { to, sdp } = payload || {};
     if (to && sdp) {
@@ -299,17 +349,49 @@ io.on('connection', (socket) => {
       io.to(to).emit('webrtc-answer', { from: socket.id, sdp });
     }
   });
+
+  // Handle disconnect
+  socket.on('disconnect', () => {
+    const userId = activeSockets.get(socket.id);
+    if (userId) {
+      const user = registeredUsers.get(userId);
+      if (user) {
+        user.socketId = null; // Mark as offline but keep user data
+        console.log(`User disconnected: ${user.username} (${userId})`);
+        
+        // Notify friends that this user went offline
+        const friends = friendPairs.get(userId) || new Set();
+        friends.forEach(friendId => {
+          const friend = registeredUsers.get(friendId);
+          if (friend && friend.socketId) {
+            io.to(friend.socketId).emit('friend-offline', { userId, username: user.username });
+          }
+        });
+      }
+      activeSockets.delete(socket.id);
+    }
+  });
+
+  socket.on('error', (error) => {
+    console.error(`Socket error for ${socket.id}:`, error);
+  });
 });
+
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', users: users.size, messages: messageHistory.length });
+  res.json({ 
+    status: 'ok', 
+    registeredUsers: registeredUsers.size, 
+    onlineUsers: activeSockets.size,
+    friendPairs: friendPairs.size
+  });
 });
 
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`\n=================================`);
-  console.log(`Local Chat Server Running`);
+  console.log(`Friend-Based P2P Chat Server`);
   console.log(`=================================`);
   console.log(`Server started on port ${PORT}`);
   console.log(`\nAccess the app from:`);
