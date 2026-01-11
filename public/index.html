@@ -24,13 +24,13 @@
     /* --- 1. VARIABLES & RESET --- */
     :root {
       --primary-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-      --bg-gradient: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      --bg-gradient: linear-gradient(135deg, #efeae2 0%, #dbe4eb 100%);
       --sidebar-bg: rgba(30, 30, 36, 0.98);
       --bubble-own: var(--primary-gradient);
       --bubble-other: #ffffff;
       --text-main: #1f2937;
       --text-light: #9ca3af;
-      --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.05);
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
       --shadow-glow: 0 4px 15px rgba(99, 102, 241, 0.3);
       --sidebar-width: 360px;
     }
@@ -40,15 +40,13 @@
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: var(--bg-gradient);
-      /* FIX: Use dynamic viewport height for mobile browsers */
       height: 100vh;
       height: 100dvh; 
       overflow: hidden;
       color: var(--text-main);
     }
 
-    /* FIX: Hide the raw file input element shown in your screenshot */
-    #fileInput { display: none; }
+    #fileInput { display: none !important; }
 
     /* --- 2. LAYOUT & OVERLAYS --- */
     .container {
@@ -60,8 +58,6 @@
       z-index: 1;
     }
 
-    /* FIX: Drop Overlay (Folder Icon Glitch) */
-    /* Ensure it is hidden by default with display: none */
     .drop-overlay {
       position: fixed; top: 0; left: 0; right: 0; bottom: 0;
       background: rgba(99, 102, 241, 0.95);
@@ -74,7 +70,7 @@
       font-weight: bold;
       backdrop-filter: blur(5px);
     }
-    .drop-overlay.active { display: flex; }
+    .drop-overlay.active { display: flex !important; }
     .drop-overlay-text { font-size: 24px; margin-top: 20px; }
 
     /* --- 3. SIDEBAR --- */
@@ -111,7 +107,6 @@
       margin-bottom: 8px;
     }
 
-    /* Connection Status */
     .connection-status {
       display: flex; align-items: center; gap: 8px;
       font-size: 12px; font-weight: 500; color: rgba(255, 255, 255, 0.6);
@@ -128,8 +123,17 @@
       70% { box-shadow: 0 0 0 6px rgba(74, 222, 128, 0); }
       100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
     }
+    .p2p-badge {
+      font-size: 11px; font-weight: 600; color: white;
+      background: #22c55e; padding: 4px 8px; border-radius: 4px;
+      margin-left: 2px; display: inline-block;
+      animation: pulse-p2p 2s infinite;
+    }
+    @keyframes pulse-p2p {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
 
-    /* Install Button */
     .install-btn {
       display: none; width: 100%; margin-bottom: 20px; padding: 14px;
       background: var(--primary-gradient); color: white; border: none;
@@ -139,30 +143,18 @@
     .install-btn.visible { display: block; }
     .install-btn:hover { transform: translateY(-2px); }
 
-    /* Sidebar Input */
-    .user-input { padding: 20px; display: flex; gap: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); flex-shrink: 0; flex-wrap: wrap; }
+    .user-input { padding: 20px; display: flex; gap: 10px; border-bottom: 1px solid rgba(255,255,255,0.05); flex-shrink: 0; }
     .user-input input {
       flex: 1; padding: 10px 14px; border-radius: 8px;
       border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2);
-      color: white; outline: none; font-size: 14px; min-width: 150px;
+      color: white; outline: none; font-size: 14px;
     }
     .user-input button {
       padding: 10px 20px; border-radius: 8px; border: none;
       background: var(--primary-gradient); color: white; cursor: pointer;
-      font-weight: 600; flex-shrink: 0; transition: all 0.2s;
-    }
-    .user-input button:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    }
-    #disconnectBtn {
-      background: #ef4444 !important;
-    }
-    #disconnectBtn:hover {
-      background: #dc2626 !important;
+      font-weight: 600; flex-shrink: 0;
     }
 
-    /* User List */
     .users-list { flex: 1; overflow-y: auto; padding: 10px 0; }
     .users-list::-webkit-scrollbar { width: 5px; }
     .users-list::-webkit-scrollbar-track { background: transparent; }
@@ -189,70 +181,59 @@
       width: 100%; position: relative; min-width: 0;
     }
 
-    /* Chat Header */
     .chat-header {
-      padding: 16px 24px; background: rgba(255, 255, 255, 0.85);
-      backdrop-filter: blur(12px); border-bottom: 1px solid rgba(0,0,0,0.05);
+      padding: 12px 16px; 
+      background: #f0f2f5; 
+      border-bottom: 1px solid rgba(0,0,0,0.05);
       display: flex; align-items: center; justify-content: space-between;
-      z-index: 10; flex-shrink: 0; /* FIX: Prevents header from shrinking/disappearing */
-      min-height: 70px;
+      z-index: 10; 
+      flex-shrink: 0; 
+      min-height: 60px;
     }
-    .chat-header h2 { font-size: 18px; font-weight: 600; color: #1f2937; margin: 0; }
+    .chat-header h2 { font-size: 16px; font-weight: 600; color: #1f2937; margin: 0; }
     #mobileConnectionStatus { color: #1f2937; }
 
-    /* Hamburger Button */
     .toggle-btn {
-        width: 44px; height: 44px; border: none; background: transparent; cursor: pointer;
+        width: 40px; height: 40px; border: none; background: transparent; cursor: pointer;
         display: flex; flex-direction: column; justify-content: center; align-items: center;
-        gap: 6px; border-radius: 10px; z-index: 50; flex-shrink: 0;
+        gap: 5px; border-radius: 50%; z-index: 50; flex-shrink: 0;
     }
-    .bar { display: block; width: 24px; height: 3px; background-color: #1f2937; border-radius: 4px; transition: 0.3s; }
+    .bar { display: block; width: 18px; height: 2px; background-color: #54656f; border-radius: 4px; transition: 0.3s; }
     .toggle-btn:hover { background: rgba(0,0,0,0.05); }
 
-    /* --- 5. MESSAGES (TEXT) --- */
-    .messages { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 12px; }
-    .message { display: flex; gap: 12px; width: 100%; animation: slideUp 0.3s ease-out; }
+    /* --- 5. MESSAGES --- */
+    .messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 8px; background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%239ca3af' fill-opacity='0.1' fill-rule='evenodd'/%3E%3C/svg%3E"); }
+
+    .message { display: flex; gap: 12px; width: 100%; animation: slideUp 0.2s ease-out; }
     @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     
     .message.own { justify-content: flex-end; }
-    .message-content { display: flex; flex-direction: column; gap: 4px; max-width: 85%; }
+    .message-content { display: flex; flex-direction: column; gap: 2px; max-width: 85%; }
     .message.own .message-content { align-items: flex-end; }
 
     .message-bubble {
-      padding: 12px 18px; border-radius: 18px; font-size: 15px; line-height: 1.5;
-      position: relative; box-shadow: var(--shadow-sm);
+      padding: 8px 12px; border-radius: 8px; font-size: 14.5px; line-height: 1.4;
+      position: relative; box-shadow: 0 1px 0.5px rgba(0,0,0,0.13);
       width: fit-content; min-width: 0; word-break: normal; overflow-wrap: break-word; white-space: pre-wrap;
     }
-    .message:not(.own) .message-bubble { background: var(--bubble-other); color: var(--text-main); border-bottom-left-radius: 4px; border: 1px solid rgba(0,0,0,0.05); }
-    .message.own .message-bubble { background: var(--bubble-own); color: white; border-bottom-right-radius: 4px; box-shadow: var(--shadow-glow); }
+    .message:not(.own) .message-bubble { background: #ffffff; color: #111b21; border-top-left-radius: 0; }
+    .message.own .message-bubble { background: var(--bubble-own); color: white; border-top-right-radius: 0; }
 
-    .message-time { font-size: 11px; color: var(--text-light); padding: 0 4px; }
-    .message.own .message-time { color: rgba(0, 0, 0, 0.65); text-align: right; font-weight: 500; }
-    .message-username { font-size: 12px; color: var(--text-light); font-weight: 600; padding: 0 4px; }
+    .message-time { font-size: 10px; color: var(--text-light); padding: 0 2px; margin-top: 2px; }
+    .message.own .message-time { color: rgba(0, 0, 0, 0.45); text-align: right; font-weight: 500; }
+    .message-username { font-size: 12px; color: #6366f1; font-weight: 600; padding-bottom: 2px; }
 
-    /* --- 6. FILE & PROGRESS STYLES (FIXED) --- */
-    /* This section creates the bubbles for file transfers */
+    /* --- 6. FILE MESSAGES --- */
     .file-message {
-      padding: 12px; border-radius: 18px; font-size: 14px;
-      position: relative; box-shadow: var(--shadow-sm);
-      min-width: 200px; max-width: 100%;
+      padding: 8px; border-radius: 8px; font-size: 14px;
+      position: relative; box-shadow: 0 1px 0.5px rgba(0,0,0,0.13);
+      min-width: 220px; max-width: 100%;
       display: flex; flex-direction: column; gap: 8px;
     }
-    
-    /* Bubble Style: Own Files */
-    .message.own .file-message {
-      background: var(--bubble-own); color: white;
-      border-bottom-right-radius: 4px; box-shadow: var(--shadow-glow);
-    }
-    
-    /* Bubble Style: Other Files */
-    .message:not(.own) .file-message {
-      background: var(--bubble-other); color: var(--text-main);
-      border-bottom-left-radius: 4px; border: 1px solid rgba(0,0,0,0.05);
-    }
+    .message.own .file-message { background: var(--bubble-own); color: white; border-top-right-radius: 0; }
+    .message:not(.own) .file-message { background: white; color: #1f2937; border-top-left-radius: 0; }
 
     .file-info { display: flex; align-items: center; gap: 12px; }
-    
     .file-icon { 
       font-size: 24px; width: 40px; height: 40px; 
       display: flex; align-items: center; justify-content: center;
@@ -264,50 +245,83 @@
     .file-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .file-size { font-size: 11px; opacity: 0.8; }
     
-    /* Action Buttons */
-    .download-btn, .cancel-btn {
-      padding: 6px 12px; border-radius: 6px; border: none; font-size: 12px; font-weight: 600; cursor: pointer;
-    }
+    .download-btn, .cancel-btn { padding: 6px 12px; border-radius: 6px; border: none; font-size: 12px; font-weight: 600; cursor: pointer; }
     .download-btn { background: #10b981; color: white; }
     .cancel-btn { background: #ef4444; color: white; }
     .message.own .download-btn { background: white; color: #6366f1; }
     .message.own .cancel-btn { background: white; color: #ef4444; }
     
-    /* Progress Bar */
-    .file-progress {
-      height: 4px; background: rgba(0,0,0,0.1);
-      border-radius: 2px; overflow: hidden; width: 100%;
-    }
+    .file-progress { height: 4px; background: rgba(0,0,0,0.1); border-radius: 2px; overflow: hidden; width: 100%; display: block; }
     .message.own .file-progress { background: rgba(255,255,255,0.3); }
-    
-    .file-progress-bar {
-      height: 100%; width: 0%; transition: width 0.2s;
-      background: #10b981; /* Green Progress */
-    }
+    .file-progress-bar { height: 100%; width: 0%; transition: width 0.2s; background: #10b981; }
     .message.own .file-progress-bar { background: white; }
 
-    /* Media Previews */
-    .media-preview img, .media-preview video {
-      max-width: 100%; border-radius: 8px; margin-top: 8px;
+    .media-preview img, .media-preview video { max-width: 100%; border-radius: 8px; margin-top: 8px; }
+
+    /* --- 7. INPUT AREA (WHATSAPP STYLE) --- */
+    .input-area {
+      padding: 8px 12px; 
+      padding-bottom: calc(8px + env(safe-area-inset-bottom));
+      background: #f0f2f5; 
+      border-top: 1px solid rgba(0,0,0,0.05);
+      display: flex; gap: 8px; z-index: 20; 
+      flex-shrink: 0;
+      align-items: flex-end; 
     }
 
-    /* --- 7. INPUT AREA --- */
-    .input-area {
-      padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom));
-      background: white; border-top: 1px solid rgba(0,0,0,0.05);
-      display: flex; gap: 12px; z-index: 20; flex-shrink: 0;
-    }
     .message-input-wrapper {
-      flex: 1; display: flex; gap: 8px; background: #f9fafb; padding: 6px;
-      border-radius: 24px; border: 1px solid #e5e7eb; align-items: center;
+      flex: 1; display: flex; gap: 8px; 
+      background: white; 
+      padding: 6px 14px;
+      border-radius: 24px; 
+      border: 1px solid white; 
+      align-items: center;
+      min-height: 42px;
     }
-    .message-input-wrapper:focus-within { background: white; border-color: #8b5cf6; box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1); }
-    .message-input { flex: 1; padding: 8px 12px; border: none; background: transparent; font-size: 15px; outline: none; color: var(--text-main); resize: none; max-height: 100px; }
-    .icon-btn { width: 40px; height: 40px; border: none; background: transparent; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 20px; color: #6b7280; }
-    .icon-btn:hover { background: #e5e7eb; color: #8b5cf6; }
-    .send-btn { padding: 0 24px; background: var(--primary-gradient); color: white; border: none; border-radius: 24px; cursor: pointer; font-weight: 600; height: 52px; box-shadow: var(--shadow-glow); transition: transform 0.2s; }
-    .send-btn:hover { transform: translateY(-2px); }
-    .send-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    .message-input-wrapper:focus-within { box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+
+    .message-input { 
+      flex: 1; padding: 4px 0; border: none; background: transparent; 
+      font-size: 15px; outline: none; color: #111b21; 
+      resize: none; max-height: 100px;
+      line-height: 1.4;
+    }
+    
+    .icon-btn { 
+      width: 32px; height: 32px; border: none; background: transparent; 
+      border-radius: 50%; cursor: pointer; 
+      display: flex; align-items: center; justify-content: center; 
+      font-size: 20px; color: #54656f; 
+      transition: 0.2s;
+    }
+    .icon-btn:hover { background: rgba(0,0,0,0.05); color: #1f2937; }
+
+    /* Round Send Button with Higher Margin */
+    .send-btn { 
+      padding: 0; 
+      background: var(--primary-gradient); 
+      color: white; border: none; 
+      border-radius: 50%; 
+      cursor: pointer; font-weight: 600; 
+      width: 50px; height: 50px; /* Bigger */
+      min-width: 50px; 
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
+      transition: transform 0.2s; 
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 6px; /* MOVED HIGHER */
+      font-size: 0; 
+    }
+    
+    .send-btn::after {
+        content: '➤'; 
+        font-size: 20px; /* Slightly bigger icon */
+        color: white;
+        margin-right: 2px; 
+        margin-top: 2px;
+    }
+
+    .send-btn:hover { transform: scale(1.05); }
+    .send-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; background: #d1d7db; }
 
     /* --- 8. RESPONSIVE LOGIC --- */
     .mobile-overlay {
@@ -317,14 +331,12 @@
     }
     .mobile-overlay.active { opacity: 1; pointer-events: auto; }
 
-    /* DESKTOP (> 768px) */
     @media (min-width: 769px) {
       .sidebar { position: relative; transform: none !important; z-index: 1; }
       .sidebar.desktop-collapsed, .sidebar.collapsed { width: 0; min-width: 0; opacity: 0; padding: 0; margin: 0; }
       .toggle-btn { display: flex; } 
     }
 
-    /* MOBILE (<= 768px) */
     @media (max-width: 768px) {
       .container { 
         flex-direction: column; z-index: auto !important; 
@@ -350,9 +362,14 @@
           transform: translateX(0) !important;
       }
       .main { height: 100%; width: 100%; }
-      .input-area { padding: 12px; flex-wrap: wrap; }
+      .input-area { padding: 6px 8px; } 
       .message-input-wrapper { width: 100%; }
-      .send-btn { width: 100%; height: 44px; margin-top: 8px; }
+      /* Mobile Button Sizing */
+      .send-btn { 
+          width: 46px; height: 46px; 
+          min-width: 46px; 
+          margin-bottom: 4px; /* Slightly less margin on mobile */
+      }
       .toggle-btn { display: flex; }
     }
 </style>
@@ -377,6 +394,7 @@
           <span class="status-dot"></span>
           <span>Connected</span>
         </div>
+        <div class="p2p-badge" id="p2pBadge" style="display: none;">● P2P Connected</div>
       </div>
 
       <div class="user-input">
@@ -440,25 +458,37 @@
   <input type="file" id="fileInput" accept="*">
 
   <script>
-    // --- Responsive Sidebar Logic ---
-    const sidebar = document.querySelector('.sidebar');
-    const mobileOverlay = document.getElementById('mobileOverlay');
+    // Wait for DOM to be fully loaded
+    document.addEventListener('DOMContentLoaded', () => {
+      // --- Responsive Sidebar Logic ---
+      const sidebar = document.querySelector('.sidebar');
+      const mobileOverlay = document.getElementById('mobileOverlay');
 
-    function toggleSidebar() {
-      const isMobile = window.innerWidth <= 768;
+      window.toggleSidebar = function() {
+        console.log('Toggle sidebar clicked');
+        const isMobile = window.innerWidth <= 768;
 
-      if (isMobile) {
-        // Mobile: Toggle slide-in and overlay
-        sidebar.classList.toggle('mobile-open');
-        mobileOverlay.classList.toggle('active');
+        if (isMobile) {
+          // Mobile: Toggle slide-in and overlay
+          sidebar.classList.toggle('mobile-open');
+          mobileOverlay.classList.toggle('active');
+          console.log('Mobile mode - toggled mobile-open');
+        } else {
+          // Desktop: Toggle width collapse
+          sidebar.classList.toggle('collapsed');
+          console.log('Desktop mode - toggled collapsed');
+        }
+      };
+
+      // Attach to button when DOM is ready
+      const toggleBtn = document.getElementById('toggleSidebarBtn');
+      if (toggleBtn) {
+        toggleBtn.addEventListener('click', window.toggleSidebar);
+        console.log('Toggle button event listener attached');
       } else {
-        // Desktop: Toggle width collapse
-        sidebar.classList.toggle('collapsed');
+        console.error('Toggle button not found!');
       }
-    }
-
-    // Attach to button
-    document.getElementById('toggleSidebarBtn').addEventListener('click', toggleSidebar);
+    });
 
     // Auto-close sidebar on mobile when a user is clicked (optional)
     // You can add this inside your renderUsers() function logic if you want.
@@ -487,7 +517,7 @@
 
     const backendUrl = getBackendUrl();
     const socket = io(backendUrl, {
-      transports: ['websocket', 'polling'],
+      transports: ['websocket'], // force WebSocket for better throughput
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionAttempts: 10
@@ -497,7 +527,9 @@
     const users = new Map();
     const files = new Map(); // Track file transfers
     const activeTransfers = new Map(); // Track ongoing file transfers for cancellation
+    const cancelledFiles = new Set(); // Track cancelled file IDs (both sender and receiver)
     let messageCount = 0;
+    let selectedUser = null; // null = group chat, user object = private chat
 
     // DOM Elements
     const usernameInput = document.getElementById('usernameInput');
@@ -511,6 +543,247 @@
     const connectionStatus = document.getElementById('connectionStatus');
     const chatTitle = document.getElementById('chatTitle');
 
+    // P2P state
+    let pc = null;
+    let dataChannel = null;
+    let isP2PConnected = false;
+    let p2pPeerId = null;
+    const pendingOutbox = []; // Messages to retry when P2P reconnects
+    const rtcConfig = {
+      iceServers: [
+        { urls: ['stun:stun.l.google.com:19302'] },
+        { urls: ['stun:stun1.l.google.com:19302'] },
+        { urls: ['turn:openrelay.metered.ca:80'], username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: ['turn:openrelay.metered.ca:443'], username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: ['turn:openrelay.metered.ca:443?transport=tcp'], username: 'openrelayproject', credential: 'openrelayproject' }
+      ],
+      iceCandidatePoolSize: 1
+    };
+
+    function createPeerConnection(role) {
+      console.log('[P2P] Creating peer connection with role:', role);
+      pc = new RTCPeerConnection(rtcConfig);
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          console.log('[P2P] ICE candidate:', event.candidate.candidate.substring(0, 50));
+        } else {
+          console.log('[P2P] ICE gathering completed');
+        }
+      };
+      pc.oniceconnectionstatechange = () => {
+        console.log('[P2P] ICE state:', pc.iceConnectionState);
+        if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
+          console.log('[P2P] Connection failed, reconnecting to server');
+          isP2PConnected = false;
+          try { socket.connect(); } catch {}
+          updateConnectionStatus(true);
+        }
+      };
+      pc.onconnectionstatechange = () => {
+        console.log('[P2P] Connection state:', pc.connectionState);
+      };
+      pc.onicegatheringstatechange = () => {
+        console.log('[P2P] ICE gathering state:', pc.iceGatheringState);
+      };
+      pc.ondatachannel = (event) => {
+        console.log('[P2P] Data channel received');
+        dataChannel = event.channel;
+        setupDataChannel();
+      };
+      if (role === 'initiator') {
+        console.log('[P2P] Creating data channel (initiator)');
+        dataChannel = pc.createDataChannel('chat', { ordered: true });
+        setupDataChannel();
+      }
+    }
+
+    function waitIceComplete() {
+      if (!pc) return Promise.resolve();
+      if (pc.iceGatheringState === 'complete') {
+        console.log('[P2P] ICE already complete');
+        return Promise.resolve();
+      }
+      return new Promise((resolve) => {
+        const timeout = setTimeout(() => {
+          console.log('[P2P] ICE gathering timeout, resolving anyway');
+          pc.removeEventListener('icegatheringstatechange', check);
+          resolve();
+        }, 3000);
+        const check = () => {
+          console.log('[P2P] ICE gathering state changed:', pc.iceGatheringState);
+          if (pc.iceGatheringState === 'complete') {
+            clearTimeout(timeout);
+            pc.removeEventListener('icegatheringstatechange', check);
+            resolve();
+          }
+        };
+        pc.addEventListener('icegatheringstatechange', check);
+      });
+    }
+
+    function setupDataChannel() {
+      if (!dataChannel) return;
+      console.log('[P2P] Setting up data channel');
+      dataChannel.binaryType = 'arraybuffer';
+      dataChannel.onopen = () => {
+        console.log('[P2P] ✓ Data channel open!');
+        isP2PConnected = true;
+        // Exchange message history immediately so peers sync state
+        try {
+          sendP2PControl({ type: 'history-response', messages: getLocalMessages() });
+        } catch (e) { console.warn('[P2P] history send failed', e); }
+        // Disconnect from server once P2P is up
+        try { socket.disconnect(); } catch {}
+        // Keep UI enabled even if server goes down
+        usernameInput.disabled = true;
+        messageInput.disabled = false;
+        sendBtn.disabled = false;
+        fileBtn.disabled = false;
+        // Retry any buffered outbox messages
+        retryOutbox();
+        updateConnectionStatus(true);
+        updateP2PBadge();
+      };
+      dataChannel.onclose = () => {
+        console.log('[P2P] Data channel closed');
+        isP2PConnected = false;
+        // Reconnect server for signaling when disconnected
+        try { socket.connect(); } catch {}
+        updateConnectionStatus(true);
+        updateP2PBadge();
+      };
+      dataChannel.onerror = (err) => {
+        console.error('[P2P] Data channel error:', err);
+      };
+      dataChannel.onmessage = (event) => {
+        const data = event.data;
+        if (typeof data === 'string') {
+          try {
+            handleP2PControl(JSON.parse(data));
+          } catch (e) {
+            console.error('[P2P] Failed to parse control message:', e);
+          }
+        } else if (data instanceof ArrayBuffer) {
+          handleP2PBinary(new Uint8Array(data));
+        }
+      };
+    }
+
+    // P2P message handlers
+    function sendP2PControl(msg) {
+      if (dataChannel && dataChannel.readyState === 'open') {
+        dataChannel.send(JSON.stringify(msg));
+        return true;
+      }
+      return false;
+    }
+
+    function retryOutbox() {
+      while (pendingOutbox.length > 0) {
+        const item = pendingOutbox.shift();
+        if (item.type === 'message') {
+          sendP2PControl(item);
+        }
+      }
+    }
+
+    function updateP2PBadge() {
+      const badge = document.getElementById('p2pBadge');
+      if (!badge) return;
+      if (isP2PConnected) {
+        badge.style.display = 'inline-block';
+        badge.style.background = '#22c55e';
+        badge.textContent = '● P2P Connected';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+
+    // Track last announced chunk to map upcoming binary payload
+    const pendingChunkMeta = new Map(); // fileId -> { index, total }
+
+    function handleP2PControl(msg) {
+      if (!msg || !msg.type) return;
+      switch (msg.type) {
+        case 'message':
+          addMessage({ id: msg.id, username: msg.username, text: msg.text, timestamp: msg.timestamp }, true);
+          break;
+        case 'history-response':
+          mergeMessages(Array.isArray(msg.messages) ? msg.messages : []);
+          break;
+        case 'file-start':
+          files.set(msg.fileId, {
+            fileId: msg.fileId,
+            fileName: msg.fileName,
+            fileSize: msg.fileSize,
+            fileType: msg.fileType,
+            chunks: [],
+            receivedSet: new Set(),
+            totalChunks: msg.totalChunks,
+            pendingComplete: false,
+            userId: msg.userId,
+            username: msg.username
+          });
+          addFileMessage(msg);
+          break;
+        case 'chunk-meta':
+          pendingChunkMeta.set(msg.fileId, { index: msg.chunkIndex, total: msg.total });
+          break;
+        case 'file-complete':
+          const file = files.get(msg.fileId);
+          if (file) {
+            if (file.receivedSet.size >= file.totalChunks) {
+              completeFileTransfer(msg.fileId);
+            } else {
+              file.pendingComplete = true;
+              updateFileProgress(msg.fileId);
+            }
+          }
+          break;
+        case 'file-cancel':
+          const fileElement = document.getElementById(`file-${msg.fileId}`);
+          if (fileElement) {
+            fileElement.innerHTML = `
+              <div class="file-info">
+                <div class="file-icon">❌</div>
+                <div class="file-details">
+                  <div class="file-name">Transfer cancelled</div>
+                </div>
+              </div>
+            `;
+          }
+          cancelledFiles.add(msg.fileId); // Mark as cancelled so chunk handlers skip it
+          files.delete(msg.fileId);
+          break;
+      }
+    }
+
+    function handleP2PBinary(uint8) {
+      // Expect a chunk for the last announced chunk-meta
+      // Find any fileId where chunk index not yet stored and pending meta exists
+      for (const [fileId, meta] of pendingChunkMeta.entries()) {
+        const f = files.get(fileId);
+        if (!f) continue;
+        // Skip if transfer was cancelled (check global set instead of sender's activeTransfers)
+        if (cancelledFiles.has(fileId)) {
+          console.log('[P2P] Ignoring chunk for cancelled transfer:', fileId);
+          pendingChunkMeta.delete(fileId);
+          continue;
+        }
+        if (f.chunks[meta.index]) continue;
+        f.chunks[meta.index] = uint8;
+        f.receivedSet.add(meta.index);
+        f.totalChunks = meta.total || f.totalChunks;
+        updateFileProgress(fileId);
+        // If completion was pending and we've reached total, finalize
+        if (f.pendingComplete && f.receivedSet.size >= f.totalChunks) {
+          completeFileTransfer(fileId);
+        }
+        pendingChunkMeta.delete(fileId);
+        break;
+      }
+    }
+
     // Socket Events
     socket.on('connect', () => {
       updateConnectionStatus(true);
@@ -518,7 +791,13 @@
     });
 
     socket.on('disconnect', () => {
+      // If P2P is active, keep UI functional; server is only for signaling
       updateConnectionStatus(false);
+      if (isP2PConnected) {
+        // Do not reset UI/state when server goes down during P2P
+        return;
+      }
+      // Otherwise, fall back to original disconnect behavior
       currentUser = null;
       messageInput.disabled = true;
       sendBtn.disabled = true;
@@ -539,31 +818,91 @@
     });
 
     socket.on('message-history', (history) => {
-      // Clear empty state if exists
-      if (messagesList.querySelector('.empty-state')) {
-        messagesList.innerHTML = '';
-      }
-      
-      // Load all previous messages
-      history.forEach(message => {
-        addMessage(message, false); // false = don't scroll
-      });
-      
-      // Scroll to bottom after loading history
-      if (history.length > 0) {
-        messagesList.scrollTop = messagesList.scrollHeight;
-      }
+      mergeMessages(history);
     });
 
     socket.on('message', (message) => {
       addMessage(message);
+      // Persist to local cache
+      const loc = getLocalMessages();
+      loc.push(message);
+      saveLocalMessages(loc);
+    });
+
+    socket.on('private-message', (message) => {
+      addMessage(message);
+      // Persist to local cache
+      const loc = getLocalMessages();
+      loc.push(message);
+      saveLocalMessages(loc);
+    });
+
+    // Begin automatic P2P when server pairs two users
+    socket.on('p2p-begin', async ({ role, peerId }) => {
+      try {
+        console.log('[P2P] p2p-begin received, role:', role, 'peerId:', peerId);
+        p2pPeerId = peerId;
+        createPeerConnection(role);
+        if (role === 'initiator') {
+          console.log('[P2P] Creating offer...');
+          const offer = await pc.createOffer();
+          console.log('[P2P] Offer created, setting local description');
+          await pc.setLocalDescription(offer);
+          console.log('[P2P] Waiting for ICE completion...');
+          await waitIceComplete();
+          // Send full SDP once (non-trickle)
+          console.log('[P2P] Sending offer to peer');
+          socket.emit('webrtc-offer', { to: peerId, sdp: pc.localDescription });
+        } else {
+          console.log('[P2P] Receiver waiting for offer');
+        }
+      } catch (e) {
+        console.error('[P2P] p2p-begin error', e);
+      }
+    });
+
+    socket.on('webrtc-offer', async ({ from, sdp }) => {
+      try {
+        console.log('[P2P] Received offer from:', from);
+        p2pPeerId = from;
+        createPeerConnection('receiver');
+        console.log('[P2P] Setting remote description (offer)');
+        await pc.setRemoteDescription(sdp);
+        console.log('[P2P] Creating answer...');
+        const answer = await pc.createAnswer();
+        console.log('[P2P] Setting local description (answer)');
+        await pc.setLocalDescription(answer);
+        console.log('[P2P] Waiting for ICE completion...');
+        await waitIceComplete();
+        console.log('[P2P] Sending answer to peer');
+        socket.emit('webrtc-answer', { to: from, sdp: pc.localDescription });
+      } catch (e) {
+        console.error('[P2P] Error handling offer', e);
+      }
+    });
+
+    socket.on('webrtc-answer', async ({ from, sdp }) => {
+      try {
+        console.log('[P2P] Received answer from:', from);
+        if (!pc) {
+          console.warn('[P2P] No peer connection for answer');
+          return;
+        }
+        console.log('[P2P] Setting remote description (answer)');
+        await pc.setRemoteDescription(sdp);
+        console.log('[P2P] P2P signaling complete, awaiting data channel');
+      } catch (e) {
+        console.error('[P2P] Error handling answer', e);
+      }
     });
 
     socket.on('file-start', (fileInfo) => {
       files.set(fileInfo.fileId, {
         ...fileInfo,
         chunks: [],
-        received: 0
+        receivedSet: new Set(),
+        totalChunks: fileInfo.totalChunks,
+        pendingComplete: false
       });
       addFileMessage(fileInfo);
     });
@@ -571,17 +910,34 @@
     socket.on('file-chunk', (data) => {
       const file = files.get(data.fileId);
       if (file) {
-        file.chunks[data.chunkIndex] = data.chunk;
-        file.received = Object.keys(file.chunks).length;
+        // Skip if transfer was cancelled (check global set instead of sender's activeTransfers)
+        if (cancelledFiles.has(data.fileId)) {
+          console.log('[File] Ignoring chunk for cancelled transfer:', data.fileId);
+          return;
+        }
+        // Store binary chunk directly
+        file.chunks[data.chunkIndex] = data.chunk; // Uint8Array
+        file.receivedSet.add(data.chunkIndex);
         file.totalChunks = data.total || file.totalChunks;
         updateFileProgress(data.fileId);
+        // If sender announced completion earlier, finish once all chunks arrive
+        if (file.pendingComplete && file.receivedSet.size >= file.totalChunks) {
+          completeFileTransfer(data.fileId);
+        }
       }
     });
 
     socket.on('file-complete', (fileInfo) => {
       const file = files.get(fileInfo.fileId);
       if (file) {
-        completeFileTransfer(fileInfo.fileId);
+        // Only complete if we have all chunks; otherwise mark pending
+        if (file.receivedSet && file.receivedSet.size >= file.totalChunks) {
+          completeFileTransfer(fileInfo.fileId);
+        } else {
+          file.pendingComplete = true;
+          // Optionally bump progress bar to near-complete to indicate finalization
+          updateFileProgress(fileInfo.fileId);
+        }
       }
     });
 
@@ -633,7 +989,7 @@
       document.getElementById('disconnectBtn').style.display = 'block';
 
       // Update header
-      chatTitle.textContent = `Welcome, ${username}!`;
+      updateChatTitle();
 
       // Empty state will be cleared when message history loads
     }
@@ -696,13 +1052,65 @@
       const text = messageInput.value.trim();
       if (!text || !currentUser) return;
 
-      socket.emit('message', { text });
+      const msg = { 
+        id: Math.random().toString(36).substr(2,9), 
+        text, 
+        username: currentUser.username, 
+        timestamp: new Date(), 
+        type: 'message',
+        isPrivate: !!selectedUser,
+        to: selectedUser?.id,
+        from: socket.id
+      };
+      
+      addMessage(msg);
+      
+      if (selectedUser) {
+        // Send private message
+        if (socket && socket.connected) {
+          socket.emit('private-message', { text, to: selectedUser.id });
+        } else {
+          pendingOutbox.push(msg);
+        }
+      } else {
+        // Send group message
+        if (isP2PConnected && dataChannel && dataChannel.readyState === 'open') {
+          sendP2PControl(msg);
+        } else if (socket && socket.connected) {
+          socket.emit('message', { text });
+        } else {
+          // Buffer for retry when P2P reconnects
+          pendingOutbox.push(msg);
+          const loc = getLocalMessages();
+          loc.push(msg);
+          saveLocalMessages(loc);
+        }
+      }
       messageInput.value = '';
       messageInput.focus();
     }
 
     // Add Message to UI
     function addMessage(message, autoScroll = true) {
+      // Filter messages based on current chat context
+      if (selectedUser) {
+        // In private chat - only show messages between me and selected user
+        const isFromSelected = message.from === selectedUser.id || message.userId === selectedUser.id;
+        const isToSelected = message.to === selectedUser.id;
+        const isFromMe = message.from === socket.id || message.userId === socket.id;
+        const isToMe = message.to === socket.id;
+        
+        // Show if: (I sent to selected user) OR (selected user sent to me)
+        if (!((isFromMe && isToSelected) || (isFromSelected && isToMe))) {
+          return; // Don't show this message in private chat
+        }
+      } else {
+        // In group chat - only show non-private messages
+        if (message.isPrivate || message.to) {
+          return; // Don't show private messages in group chat
+        }
+      }
+      
       // Clear empty state if needed
       if (messagesList.querySelector('.empty-state')) {
         messagesList.innerHTML = '';
@@ -728,6 +1136,19 @@
       `;
 
       messagesList.appendChild(div);
+
+      // Update local cache on every add
+      const loc = getLocalMessages();
+      loc.push({ 
+        id: message.id, 
+        username: message.username, 
+        text: message.text, 
+        timestamp: message.timestamp,
+        isPrivate: message.isPrivate,
+        to: message.to,
+        from: message.from || message.userId
+      });
+      saveLocalMessages(loc);
 
       if (autoScroll) {
         messagesList.scrollTop = messagesList.scrollHeight;
@@ -755,40 +1176,60 @@
       }
     });
 
-    // Share File (sequential, cancellable, with progress)
+    // Share File (sequential, cancellable, with progress) - binary chunks
     async function shareFile(file) {
       const fileId = Math.random().toString(36).substr(2, 9);
-      const chunkSize = 64 * 1024; // 64KB chunks (stable)
+      // Adaptive chunk size: smaller on mobile to reduce per-chunk CPU/memory cost
+      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      const chunkSize = isMobile ? (64 * 1024) : (256 * 1024);
       const totalChunks = Math.ceil(file.size / chunkSize);
 
       // Track this transfer for cancellation
       activeTransfers.set(fileId, { cancelled: false });
 
       // Announce start with totals so progress works on all clients
-      socket.emit('file-start', {
+      const startMsg = {
         fileId,
         fileName: file.name,
         fileSize: file.size,
         fileType: file.type,
-        totalChunks
+        totalChunks,
+        username: currentUser?.username || 'Unknown',
+        userId: socket.id  // Add sender's user ID
+      };
+      
+      // Display file on sender's side immediately
+      addFileMessage(startMsg);
+      
+      // Initialize file tracking for sender to show progress
+      files.set(fileId, {
+        fileId,
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        chunks: [],
+        receivedSet: new Set(),
+        totalChunks,
+        pendingComplete: false,
+        userId: socket.id,
+        username: currentUser?.username || 'Unknown'
       });
+      
+      if (isP2PConnected && dataChannel?.readyState === 'open') {
+        sendP2PControl({ type: 'file-start', ...startMsg });
+      } else {
+        socket.emit('file-start', startMsg);
+      }
 
       let chunkIndex = 0;
 
-      const readNextChunk = () => {
-        // Stop if cancelled
-        if (activeTransfers.get(fileId)?.cancelled) {
+      let burstCounter = 0;
+      while (chunkIndex < totalChunks) {
+        // Stop if cancelled - check before every iteration to respond quickly
+        if (activeTransfers.get(fileId)?.cancelled || cancelledFiles.has(fileId)) {
+          console.log('[File] Sender cancelled transfer:', fileId);
+          cancelledFiles.add(fileId); // Also mark on sender side
           socket.emit('file-error', { fileId, error: 'Transfer cancelled by sender' });
-          return;
-        }
-
-        if (chunkIndex >= totalChunks) {
-          // All chunks sent
-          socket.emit('file-complete', {
-            fileId,
-            fileName: file.name
-          });
-          activeTransfers.delete(fileId);
           return;
         }
 
@@ -796,34 +1237,57 @@
         const end = Math.min(start + chunkSize, file.size);
         const slice = file.slice(start, end);
 
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          // If cancelled while reading, abort
-          if (activeTransfers.get(fileId)?.cancelled) {
-            socket.emit('file-error', { fileId, error: 'Transfer cancelled by sender' });
+        try {
+          const buffer = await slice.arrayBuffer();
+          const binary = new Uint8Array(buffer);
+          
+          // Double-check cancellation before sending
+          if (activeTransfers.get(fileId)?.cancelled || cancelledFiles.has(fileId)) {
+            console.log('[File] Cancellation detected before sending chunk:', fileId);
+            cancelledFiles.add(fileId);
             return;
           }
-
-          const chunk = btoa(String.fromCharCode(...new Uint8Array(e.target.result)));
-          socket.emit('file-chunk', {
-            fileId,
-            chunkIndex,
-            chunk,
-            total: totalChunks
-          });
-
-          // Progress will update via socket 'file-chunk' handler on all clients
+          
+          if (isP2PConnected && dataChannel?.readyState === 'open') {
+            // Send meta then binary over P2P
+            sendP2PControl({ type: 'chunk-meta', fileId, chunkIndex, total: totalChunks });
+            dataChannel.send(binary);
+          } else {
+            socket.compress(false).emit('file-chunk', {
+              fileId,
+              chunkIndex,
+              chunk: binary,
+              total: totalChunks
+            });
+          }
+          
+          // Update progress on sender's side
           chunkIndex++;
-          // Small delay to keep UI responsive
-          setTimeout(readNextChunk, 5);
-        };
-        reader.onerror = () => {
+          const progressFile = files.get(fileId);
+          if (progressFile) {
+            progressFile.receivedSet.add(chunkIndex - 1);  // Mark this chunk as sent
+            updateFileProgress(fileId);
+          }
+          
+          burstCounter++;
+          // Yield occasionally to keep UI responsive - also check cancellation during yield
+          if (burstCounter % 4 === 0) {
+            await new Promise(resolve => setTimeout(resolve, 0));
+          }
+        } catch (e) {
           socket.emit('file-error', { fileId, error: 'Error reading file chunk' });
-        };
-        reader.readAsArrayBuffer(slice);
-      };
+          return;
+        }
+      }
 
-      readNextChunk();
+      // All chunks sent
+      const completeMsg = { fileId, fileName: file.name };
+      if (isP2PConnected && dataChannel?.readyState === 'open') {
+        sendP2PControl({ type: 'file-complete', ...completeMsg });
+      } else {
+        socket.emit('file-complete', completeMsg);
+      }
+      activeTransfers.delete(fileId);
     }
 
     // Cancel file transfer
@@ -831,10 +1295,15 @@
       const transfer = activeTransfers.get(fileId);
       if (transfer) {
         transfer.cancelled = true;
-        activeTransfers.delete(fileId);
+        cancelledFiles.add(fileId); // Add to global set immediately to stop chunk loop
+        // Don't delete yet - keep in activeTransfers so chunk loop can see it's cancelled
         
-        // Notify server to broadcast cancellation to all devices
-        socket.emit('file-cancel', { fileId });
+        // Notify all devices via P2P and server
+        if (isP2PConnected && dataChannel?.readyState === 'open') {
+          sendP2PControl({ type: 'file-cancel', fileId });
+        } else {
+          socket.emit('file-cancel', { fileId });
+        }
         
         // Update UI
         const fileElement = document.getElementById(`file-${fileId}`);
@@ -858,7 +1327,7 @@
 
     // Add File Message
     function addFileMessage(fileInfo) {
-      const isOwn = fileInfo.userId === socket.id;
+      const isOwn = currentUser && fileInfo.username === currentUser.username;
       const div = document.createElement('div');
       div.className = `message ${isOwn ? 'own' : ''}`;
 
@@ -904,8 +1373,8 @@
       let percentage = 0;
       if (completed !== null && total !== null) {
         percentage = Math.round((completed / total) * 100);
-      } else if (file.received && file.totalChunks) {
-        percentage = Math.round((file.received / file.totalChunks) * 100);
+      } else if (file.receivedSet && file.totalChunks) {
+        percentage = Math.round((file.receivedSet.size / file.totalChunks) * 100);
       }
       
       const progressBar = document.getElementById(`progress-${fileId}`);
@@ -918,6 +1387,10 @@
     function completeFileTransfer(fileId) {
       const file = files.get(fileId);
       if (!file) return;
+      // Ensure all chunks are present before reconstructing
+      if (file.receivedSet && file.receivedSet.size < file.totalChunks) {
+        return; // wait for remaining chunks
+      }
 
       const fileElement = document.getElementById(`file-${fileId}`);
       if (fileElement) {
@@ -931,6 +1404,10 @@
         } else if (type.startsWith('video/')) {
           previewHtml = `<div class="media-preview"><video src="${url}" controls playsinline muted></video></div>`;
         }
+
+        // Force progress to 100%
+        const progressBar = document.getElementById(`progress-${fileId}`);
+        if (progressBar) progressBar.style.width = '100%';
 
         fileElement.innerHTML = `
           <div class="file-info">
@@ -950,15 +1427,8 @@
 
     // Reconstruct File
     function reconstructFile(file) {
-      const binaryStrings = file.chunks.map(chunk => 
-        String.fromCharCode(...atob(chunk).split('').map(c => c.charCodeAt(0)))
-      );
-      const binaryString = binaryStrings.join('');
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      return new Blob([bytes], { type: file.fileType });
+      // Combine binary chunks directly into a Blob
+      return new Blob(file.chunks, { type: file.fileType });
     }
 
     // Download File
@@ -978,7 +1448,8 @@
       users.forEach(user => {
         const div = document.createElement('div');
         const isOwn = user.id === socket.id;
-        div.className = `user-item ${isOwn ? 'active' : ''}`;
+        const isSelected = selectedUser && selectedUser.id === user.id;
+        div.className = `user-item ${isOwn ? 'active' : ''} ${isSelected ? 'active' : ''}`;
 
         const initials = user.username.substring(0, 2).toUpperCase();
 
@@ -988,21 +1459,110 @@
             <div class="user-name">${escapeHtml(user.username)} ${isOwn ? '(You)' : ''}</div>
           </div>
         `;
+        
+        // Add click handler for non-own users
+        if (!isOwn) {
+          div.style.cursor = 'pointer';
+          div.onclick = () => selectUser(user);
+        }
 
         usersList.appendChild(div);
       });
     }
+    
+    // Select user for private chat
+    function selectUser(user) {
+      if (user.id === socket.id) return; // Can't chat with yourself
+      
+      selectedUser = user;
+      renderUsers();
+      updateChatTitle();
+      refreshMessages(); // Re-render messages with new filter
+      
+      // Close sidebar on mobile
+      if (window.innerWidth <= 768) {
+        sidebar.classList.remove('mobile-open');
+        mobileOverlay.classList.remove('active');
+      }
+      
+      messageInput.focus();
+    }
+    
+    // Update chat title based on context
+    function updateChatTitle() {
+      if (selectedUser) {
+        chatTitle.innerHTML = `
+          <span onclick="backToGroupChat()" style="cursor: pointer; color: #6366f1; margin-right: 8px;">← Back</span>
+          ${escapeHtml(selectedUser.username)}
+        `;
+      } else {
+        chatTitle.textContent = currentUser ? `Welcome, ${currentUser.username}!` : 'Local Chat';
+      }
+    }
+    
+    // Back to group chat
+    function backToGroupChat() {
+      selectedUser = null;
+      renderUsers();
+      updateChatTitle();
+      refreshMessages(); // Re-render messages with new filter
+    }
+    
+    // Refresh messages display (re-render with current filter)
+    function refreshMessages() {
+      const allMessages = getLocalMessages();
+      messagesList.innerHTML = '';
+      allMessages.forEach(msg => addMessage(msg, false));
+      messagesList.scrollTop = messagesList.scrollHeight;
+    }
 
     // Update Connection Status
-    function updateConnectionStatus(connected) {
-      const status = connected ? 'Connected' : 'Disconnected';
+    function updateConnectionStatus(serverConnected) {
+      const p2p = isP2PConnected;
+      const statusText = p2p
+        ? 'P2P Connected'
+        : (serverConnected ? 'Server Connected' : 'Disconnected');
+      const color = p2p ? '#22c55e' : (serverConnected ? '#4ade80' : '#ef4444');
       connectionStatus.innerHTML = `
-        <span class="status-dot" style="background: ${connected ? '#4ade80' : '#ef4444'}"></span>
-        <span>${status}</span>
+        <span class="status-dot" style="background: ${color}"></span>
+        <span>${statusText}</span>
       `;
     }
 
-    // Utility Functions
+    // Utility & Cache Functions
+    const CLIENT_MAX_MESSAGES = 500;
+    function getLocalMessages() {
+      try {
+        const raw = localStorage.getItem('chatLocalMessages');
+        if (!raw) return [];
+        const arr = JSON.parse(raw);
+        return Array.isArray(arr) ? arr.slice(-CLIENT_MAX_MESSAGES) : [];
+      } catch { return []; }
+    }
+    function saveLocalMessages(messages) {
+      try {
+        const last = messages.slice(-CLIENT_MAX_MESSAGES);
+        localStorage.setItem('chatLocalMessages', JSON.stringify(last));
+      } catch {}
+    }
+    function mergeMessages(list) {
+      if (!Array.isArray(list)) return;
+      const existing = getLocalMessages();
+      const byKey = new Map();
+      const add = (m) => {
+        const key = (m.id || '') + '|' + (m.username || '') + '|' + (m.text || '') + '|' + (m.timestamp || '');
+        if (!byKey.has(key)) byKey.set(key, m);
+      };
+      existing.forEach(add);
+      list.forEach(add);
+      const merged = Array.from(byKey.values()).sort((a,b)=>new Date(a.timestamp)-new Date(b.timestamp));
+      saveLocalMessages(merged);
+      // Render merged (clear and rebuild)
+      messagesList.innerHTML = '';
+      merged.forEach(m => addMessage(m, false));
+      messagesList.scrollTop = messagesList.scrollHeight;
+    }
+
     function escapeHtml(text) {
       const div = document.createElement('div');
       div.textContent = text;
@@ -1057,11 +1617,6 @@
     });
 
     // Toggle sidebar (mobile)
-    document.getElementById('toggleSidebarBtn').addEventListener('click', () => {
-      const sb = document.querySelector('.sidebar');
-      sb.classList.toggle('collapsed');
-    });
-
     // Auto-resize textarea
     const autoResize = (el) => {
       el.style.height = 'auto';
@@ -1170,6 +1725,10 @@
         }
       }
     });
+    
+
+      
   </script>
 </body>
 </html>
+      
