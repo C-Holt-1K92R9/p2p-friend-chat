@@ -531,21 +531,6 @@
 <body>
   <button class="hamburger-btn" id="hamburgerBtn" onclick="toggleSidebar()">☰</button>
   
-  <!-- Server Configuration Overlay -->
-  <div class="server-config" id="serverConfig">
-    <div class="server-card">
-      <h1>🔗 Server Setup</h1>
-      <p>Enter your backend server URL (Railway/Render link)</p>
-      <div id="savedServerDisplay" class="saved-server" style="display: none;">
-        Connected to: <strong id="savedServerUrl"></strong>
-      </div>
-      <input type="url" id="serverUrl" placeholder="https://your-server.railway.app" />
-      <button onclick="connectToServer()">Connect</button>
-      <div id="serverStatus" class="server-status" style="display: none;"></div>
-      <span id="changeServerLink" class="change-link" style="display: none;" onclick="showServerInput()">Change server</span>
-    </div>
-  </div>
-
   <div class="registration hidden" id="regScreen">
     <div class="reg-card">
       <h1>👋 Welcome</h1>
@@ -623,9 +608,8 @@
   </div>
 
   <script>
-    // Server configuration - Default server URL (Railway)
-    const DEFAULT_SERVER_URL = 'https://p2p-friend-chat-production.up.railway.app';
-    let SERVER_URL = localStorage.getItem('serverUrl') || DEFAULT_SERVER_URL;
+    // Auto-connect to Railway URL
+    const SERVER_URL = 'https://p2p-friend-chat-production.up.railway.app';
     let socket = null;
     let currentUser = null;
     let friends = new Map();
@@ -635,41 +619,17 @@
     // File transfer state
     const pendingFileTransfers = new Map(); // fileId -> { metadata, chunks[], receivedCount } 
 
-    // Initialize on page load - auto-connect to default server
+    // Initialize on page load - auto-connect to Railway
     function init() {
       connectToServer(SERVER_URL);
     }
 
-    // Server configuration functions
-    function initServerConfig() {
-      const savedServer = localStorage.getItem('serverUrl');
-      if (savedServer) {
-        document.getElementById('savedServerUrl').textContent = savedServer;
-        document.getElementById('savedServerDisplay').style.display = 'block';
-        document.getElementById('serverUrl').style.display = 'none';
-        document.getElementById('changeServerLink').style.display = 'inline-block';
-        // Auto-connect to saved server
-        connectToServer(savedServer);
-      }
-    }
-
-    function showServerInput() {
-      document.getElementById('savedServerDisplay').style.display = 'none';
-      document.getElementById('serverUrl').style.display = 'block';
-      document.getElementById('serverUrl').value = localStorage.getItem('serverUrl') || '';
-      document.getElementById('changeServerLink').style.display = 'none';
-      document.getElementById('serverStatus').style.display = 'none';
-    }
-
     function connectToServer(url) {
-      const serverUrl = url || document.getElementById('serverUrl').value.trim() || DEFAULT_SERVER_URL;
-      if (!serverUrl) return alert('Please enter a server URL');
+      const serverUrl = url || SERVER_URL;
+      if (!serverUrl) return alert('Server URL not configured');
       
       // Clean URL (remove trailing slash)
       const cleanUrl = serverUrl.replace(/\/$/, '');
-      
-      // Hide server config immediately for auto-connect
-      document.getElementById('serverConfig').classList.add('hidden');
       
       // Disconnect existing socket if any
       if (socket) {
@@ -684,8 +644,6 @@
       });
       
       socket.on('connect', () => {
-        SERVER_URL = cleanUrl;
-        localStorage.setItem('serverUrl', cleanUrl);
         document.getElementById('status').textContent = 'Connected';
         
         // Setup all socket event listeners
@@ -696,12 +654,7 @@
       });
       
       socket.on('connect_error', (err) => {
-        // Show server config on connection failure
-        document.getElementById('serverConfig').classList.remove('hidden');
-        const statusEl = document.getElementById('serverStatus');
-        statusEl.style.display = 'block';
-        statusEl.className = 'server-status error';
-        statusEl.textContent = 'Connection failed: ' + (err.message || 'Server unreachable');
+        document.getElementById('status').textContent = 'Connection failed: ' + (err.message || 'Server unreachable');
       });
     }
 
